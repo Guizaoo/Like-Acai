@@ -99,31 +99,34 @@ const grupos = [
 
 function SecaoOpcoes({ grupo }) {
   return (
-    <section className="border-t border-zinc-200 px-3 py-2.5">
-      <div className="mb-1.5 flex items-start justify-between gap-2">
+    <section className="rounded-2xl border border-zinc-200 bg-white px-3 py-3 shadow-sm">
+      <div className="mb-2 flex items-start justify-between gap-2">
         <div>
-          <h2 className="text-xs font-semibold text-zinc-900">{grupo.titulo}</h2>
-          <p className="text-[11px] text-zinc-500">{grupo.subtitulo}</p>
+          <h2 className="text-sm font-semibold text-zinc-900">{grupo.titulo}</h2>
+          <p className="text-xs text-zinc-500">{grupo.subtitulo}</p>
         </div>
-        <span className="text-[11px] font-semibold text-zinc-500">{grupo.contador}</span>
+        <span className="rounded-full bg-zinc-100 px-2 py-1 text-[11px] font-semibold text-zinc-500">{grupo.contador}</span>
       </div>
 
-      <div className="space-y-1">
+      <div className="space-y-1.5">
         {grupo.opcoes.map((opcao) => (
-          <label key={`${grupo.titulo}-${opcao.nome}`} className="flex items-center justify-between gap-2 py-0.5">
-            <span className={`text-[12px] ${opcao.destaque ? "text-fuchsia-700" : "text-zinc-700"}`}>
+          <label
+            key={`${grupo.titulo}-${opcao.nome}`}
+            className="flex min-h-10 items-center justify-between gap-2 rounded-xl px-1"
+          >
+            <span className={`text-[13px] ${opcao.destaque ? "font-medium text-fuchsia-700" : "text-zinc-700"}`}>
               {opcao.nome}
             </span>
             <input
               type={grupo.tipo}
               name={grupo.titulo}
-              className="h-4 w-4 rounded-full border-zinc-300 text-fuchsia-600 focus:ring-fuchsia-500"
+              className="h-5 w-5 rounded-full border-zinc-300 text-fuchsia-600 focus:ring-fuchsia-500"
             />
           </label>
         ))}
       </div>
 
-      {grupo.obrigatorio ? <p className="pt-1 text-[10px] font-semibold text-fuchsia-600">Obrigatório</p> : null}
+      {grupo.obrigatorio ? <p className="pt-1 text-[11px] font-semibold text-fuchsia-600">Obrigatório</p> : null}
     </section>
   );
 }
@@ -137,34 +140,39 @@ function Adicao() {
   const precoProduto = item?.price ?? "R$ 28,97";
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-sm bg-[#ededf0] text-zinc-900">
-      <div className="min-h-screen bg-white pb-24">
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-fuchsia-600"
-        >
-          ← Voltar
-        </button>
-
-        <img src={ImgAcai} alt={nomeProduto} className="h-28 w-full object-cover" />
-
-        <section className="border-b border-zinc-200 px-3 py-2.5">
-          <h1 className="text-sm font-semibold">{nomeProduto}</h1>
-          <p className="mt-1 text-xs leading-snug text-zinc-600">
-            Monte seu açaí com até 4 opções dos complementos para você se deliciar.
-          </p>
-          <p className="mt-2 text-base font-bold text-fuchsia-700">{precoProduto}</p>
-        </section>
-
-        {grupos.map((grupo) => (
-          <SecaoOpcoes key={grupo.titulo} grupo={grupo} />
-        ))}
-
-        <div className="fixed bottom-0 left-1/2 w-full max-w-sm -translate-x-1/2 border-t border-zinc-200 bg-white px-3 pb-3 pt-2">
+    <main className="mx-auto min-h-screen w-full max-w-md bg-zinc-100 text-zinc-900">
+      <div className="min-h-screen pb-28">
+        <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-zinc-200 bg-white px-3 py-2">
           <button
             type="button"
-            className="w-full rounded bg-fuchsia-700 py-2.5 text-[11px] font-bold uppercase tracking-wide text-white"
+            onClick={() => navigate(-1)}
+            className="rounded-full border border-zinc-200 px-3 py-1.5 text-xs font-semibold text-fuchsia-600"
+          >
+            ← Voltar
+          </button>
+          <p className="truncate text-xs text-zinc-600">Monte do seu jeito</p>
+        </div>
+
+        <img src={ImgAcai} alt={nomeProduto} className="h-36 w-full object-cover" />
+
+        <section className="bg-white px-3 py-3 shadow-sm">
+          <h1 className="text-base font-semibold">{nomeProduto}</h1>
+          <p className="mt-1 text-xs leading-relaxed text-zinc-600">
+            Monte seu açaí com até 4 opções dos complementos para você se deliciar.
+          </p>
+          <p className="mt-2 text-lg font-bold text-fuchsia-700">{precoProduto}</p>
+        </section>
+
+        <div className="space-y-2.5 px-3 py-3">
+          {grupos.map((grupo) => (
+            <SecaoOpcoes key={grupo.titulo} grupo={grupo} />
+          ))}
+        </div>
+
+        <div className="safe-bottom fixed bottom-0 left-1/2 w-full max-w-md -translate-x-1/2 border-t border-zinc-200 bg-white px-3 pb-3 pt-2 shadow-[0_-8px_20px_rgba(0,0,0,0.08)]">
+          <button
+            type="button"
+            className="w-full rounded-xl bg-fuchsia-700 py-3 text-xs font-bold uppercase tracking-wide text-white"
           >
             Adicionar ao carrinho • {precoProduto}
           </button>

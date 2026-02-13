@@ -100,26 +100,28 @@ const cardapio = [
 
 function CardapioItem({ item, onAdd }) {
   return (
-    <article className="flex min-h-32 justify-between gap-3 rounded-md border border-slate-200 bg-white p-3">
-      <div className="flex-1">
-        <h4 className="text-sm font-medium text-slate-800">{item.title}</h4>
-        <p className="mt-2 text-xs text-slate-500">{item.description}</p>
-        <div className="mt-3 flex items-center justify-between">
-          <p className="text-sm font-semibold text-slate-700">{item.price}</p>
+    <article className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+      {item.image ? (
+        <img src={item.image} alt={item.title} className="h-16 w-16 flex-none rounded-xl object-cover" />
+      ) : (
+        <div className="h-16 w-16 flex-none rounded-xl bg-slate-100" />
+      )}
+
+      <div className="min-w-0 flex-1">
+        <h4 className="text-sm font-semibold leading-tight text-slate-800">{item.title}</h4>
+        <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-slate-500">{item.description}</p>
+        <div className="mt-2 flex items-center justify-between">
+          <p className="text-sm font-bold text-slate-800">{item.price}</p>
           <button
             type="button"
             onClick={onAdd}
-            className="rounded-full bg-fuchsia-600 px-2.5 py-0.5 text-sm font-bold text-white"
+            className="flex h-9 min-w-9 items-center justify-center rounded-full bg-fuchsia-600 px-2 text-xl font-bold text-white"
             aria-label={`Adicionar ${item.title}`}
           >
             +
           </button>
         </div>
       </div>
-
-      {item.image ? (
-        <img src={item.image} alt={item.title} className="h-16 w-16 rounded object-cover" />
-      ) : null}
     </article>
   );
 }
@@ -128,12 +130,12 @@ function Home() {
   const navigate = useNavigate();
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-4xl bg-[#f3f4f6] pb-24 text-slate-800">
-      <div className="bg-[#7f22c8] px-4 py-2 text-center text-sm font-semibold text-white">
+    <main className="mx-auto min-h-screen w-full max-w-md bg-slate-100 pb-28 text-slate-800">
+      <div className="bg-[#7f22c8] px-4 py-2 text-center text-xs font-semibold text-white">
         🎁 Promoção de primeiro pedido ativada, aproveite!
       </div>
 
-      <section className="relative h-44 w-full overflow-hidden">
+      <section className="relative h-36 w-full overflow-hidden sm:h-44">
         <img
           src="https://images.unsplash.com/photo-1611690078903-71dc5a49f5e3?auto=format&fit=crop&w=1400&q=80"
           alt="LikeAçai banner"
@@ -141,35 +143,39 @@ function Home() {
         />
       </section>
 
-      <section className="bg-white px-4 pb-4 pt-3 shadow-sm">
-        <div className="mb-2 flex items-center gap-2">
-          <h1 className="text-3xl font-black tracking-tight">LikeAçai</h1>
+      <section className="rounded-b-3xl bg-white px-4 pb-4 pt-3 shadow-sm">
+        <div className="mb-1 flex items-center gap-2">
+          <h1 className="text-2xl font-black tracking-tight">LikeAçai</h1>
           <span className="text-blue-500">✔️</span>
         </div>
-        <p className="text-sm text-slate-600">📍 São Luís - MA • ⭐ 4,9 (1.291 avaliações)</p>
+        <p className="text-xs text-slate-600">📍 São Luís - MA • ⭐ 4,9 (1.291 avaliações)</p>
       </section>
 
-      <section className="px-4 pt-4">
-        <h2 className="text-2xl font-bold tracking-tight">Super Promoções</h2>
-        <div className="mt-3 grid gap-4 md:grid-cols-2">
+      <section className="px-3 pt-4">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-lg font-bold tracking-tight">Super Promoções</h2>
+          <span className="text-xs font-medium text-fuchsia-700">Entrega rápida</span>
+        </div>
+
+        <div className="space-y-3">
           {promoItems.map((item) => (
-            <article key={item.id} className="overflow-hidden rounded-2xl bg-white shadow">
-              <div className="relative h-40">
+            <article key={item.id} className="overflow-hidden rounded-2xl bg-white shadow-sm">
+              <div className="relative h-36">
                 <img src={item.image} alt={item.title} className="h-full w-full object-cover" />
-                <span className="absolute left-2 top-2 rounded-md bg-red-500 px-2 py-1 text-xs font-extrabold text-white">
+                <span className="absolute left-2 top-2 rounded-md bg-red-500 px-2 py-1 text-[10px] font-extrabold text-white">
                   {item.badge}
                 </span>
               </div>
               <div className="p-3">
-                <h3 className="text-xl font-black leading-tight">{item.title}</h3>
-                <p className="mt-1 text-sm text-slate-600">{item.description}</p>
+                <h3 className="text-lg font-black leading-tight">{item.title}</h3>
+                <p className="mt-1 text-xs text-slate-600">{item.description}</p>
                 <p className="mt-2 text-xs text-slate-400 line-through">{item.oldPrice}</p>
-                <div className="mt-1 flex items-center justify-between">
+                <div className="mt-1 flex items-center justify-between gap-3">
                   <strong className="text-2xl font-black text-fuchsia-600">{item.price}</strong>
                   <button
                     type="button"
                     onClick={() => navigate("/adicao", { state: { item } })}
-                    className="flex h-10 w-10 items-center justify-center rounded-full bg-fuchsia-600 text-3xl leading-none text-white"
+                    className="flex h-11 w-11 items-center justify-center rounded-full bg-fuchsia-600 text-3xl leading-none text-white"
                     aria-label={`Adicionar ${item.title}`}
                   >
                     +
@@ -181,14 +187,14 @@ function Home() {
         </div>
       </section>
 
-      <section className="px-4 pt-6">
-        <h2 className="text-2xl font-bold tracking-tight">Cardápio</h2>
+      <section className="px-3 pt-5">
+        <h2 className="text-lg font-bold tracking-tight">Cardápio</h2>
 
-        <div className="mt-4 space-y-6">
+        <div className="mt-3 space-y-5">
           {cardapio.map((secao) => (
             <div key={secao.categoria}>
-              <h3 className="mb-2 text-xl font-semibold text-slate-800">{secao.categoria}</h3>
-              <div className="grid gap-3 md:grid-cols-2">
+              <h3 className="mb-2 text-base font-semibold text-slate-800">{secao.categoria}</h3>
+              <div className="space-y-2.5">
                 {secao.itens.map((item) => (
                   <CardapioItem
                     key={item.id}
@@ -202,20 +208,20 @@ function Home() {
         </div>
       </section>
 
-      <nav className="fixed bottom-0 left-1/2 z-10 flex w-full max-w-4xl -translate-x-1/2 justify-around border-t bg-white py-2 text-sm">
-        <button type="button" className="flex flex-col items-center text-fuchsia-600">
+      <nav className="safe-bottom fixed bottom-0 left-1/2 z-10 flex w-full max-w-md -translate-x-1/2 justify-around border-t border-slate-200 bg-white py-2 text-[11px] shadow-[0_-6px_16px_rgba(15,23,42,0.08)]">
+        <button type="button" className="flex min-w-14 flex-col items-center text-fuchsia-600">
           <span>🏠</span>
           <span className="font-semibold">Início</span>
         </button>
-        <button type="button" className="flex flex-col items-center text-slate-400">
+        <button type="button" className="flex min-w-14 flex-col items-center text-slate-400">
           <span>🔎</span>
           <span>Buscar</span>
         </button>
-        <button type="button" className="flex flex-col items-center text-slate-400">
+        <button type="button" className="flex min-w-14 flex-col items-center text-slate-400">
           <span>🛍️</span>
           <span>Carrinho</span>
         </button>
-        <button type="button" className="flex flex-col items-center text-slate-400">
+        <button type="button" className="flex min-w-14 flex-col items-center text-slate-400">
           <span>👤</span>
           <span>Conta</span>
         </button>
