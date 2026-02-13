@@ -1,4 +1,6 @@
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useCart } from "../context/CartContext";
 
 const promoItems = [
   {
@@ -128,6 +130,37 @@ function CardapioItem({ item, onAdd }) {
 
 function Home() {
   const navigate = useNavigate();
+  const { addItem, totalItems } = useCart();
+  const [filtro, setFiltro] = useState("");
+
+  const cardapioFiltrado = useMemo(() => {
+    const termo = filtro.trim().toLowerCase();
+
+    if (!termo) return cardapio;
+
+    return cardapio
+      .map((secao) => ({
+        ...secao,
+        itens: secao.itens.filter(
+          (item) =>
+            item.title.toLowerCase().includes(termo) ||
+            item.description.toLowerCase().includes(termo) ||
+            secao.categoria.toLowerCase().includes(termo),
+        ),
+      }))
+      .filter((secao) => secao.itens.length > 0);
+  }, [filtro]);
+
+  const irParaInicio = () => {
+    navigate("/");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const abrirBusca = () => {
+    navigate("/");
+    const cardapioSection = document.getElementById("secao-cardapio");
+    cardapioSection?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-md bg-slate-100 pb-28 text-slate-800">
@@ -149,6 +182,20 @@ function Home() {
           <span className="text-blue-500">✔️</span>
         </div>
         <p className="text-xs text-slate-600">📍 São Luís - MA • ⭐ 4,9 (1.291 avaliações)</p>
+      </section>
+
+      <section className="px-3 pt-3">
+        <label htmlFor="busca-cardapio" className="sr-only">
+          Buscar no cardápio
+        </label>
+        <input
+          id="busca-cardapio"
+          type="search"
+          value={filtro}
+          onChange={(event) => setFiltro(event.target.value)}
+          placeholder="Pesquise por item, categoria ou descrição"
+          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none ring-fuchsia-500 focus:ring"
+        />
       </section>
 
       <section className="px-3 pt-4">
@@ -187,39 +234,52 @@ function Home() {
         </div>
       </section>
 
-      <section className="px-3 pt-5">
+      <section id="secao-cardapio" className="px-3 pt-5">
         <h2 className="text-lg font-bold tracking-tight">Cardápio</h2>
 
         <div className="mt-3 space-y-5">
-          {cardapio.map((secao) => (
-            <div key={secao.categoria}>
-              <h3 className="mb-2 text-base font-semibold text-slate-800">{secao.categoria}</h3>
-              <div className="space-y-2.5">
-                {secao.itens.map((item) => (
-                  <CardapioItem
-                    key={item.id}
-                    item={item}
-                    onAdd={() => navigate("/adicao", { state: { item } })}
-                  />
-                ))}
+          {cardapioFiltrado.length === 0 ? (
+            <p className="rounded-xl bg-white p-3 text-sm text-slate-500 shadow-sm">Nenhum item encontrado.</p>
+          ) : (
+            cardapioFiltrado.map((secao) => (
+              <div key={secao.categoria}>
+                <h3 className="mb-2 text-base font-semibold text-slate-800">{secao.categoria}</h3>
+                <div className="space-y-2.5">
+                  {secao.itens.map((item) => (
+                    <CardapioItem key={item.id} item={item} onAdd={() => addItem(item)} />
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </section>
 
       <nav className="safe-bottom fixed bottom-0 left-1/2 z-10 flex w-full max-w-md -translate-x-1/2 justify-around border-t border-slate-200 bg-white py-2 text-[11px] shadow-[0_-6px_16px_rgba(15,23,42,0.08)]">
-        <button type="button" className="flex min-w-14 flex-col items-center text-fuchsia-600">
+        <button
+          type="button"
+          onClick={irParaInicio}
+          className="flex min-w-14 flex-col items-center text-fuchsia-600"
+        >
           <span>🏠</span>
           <span className="font-semibold">Início</span>
         </button>
-        <button type="button" className="flex min-w-14 flex-col items-center text-slate-400">
+        <button type="button" onClick={abrirBusca} className="flex min-w-14 flex-col items-center text-slate-600">
           <span>🔎</span>
           <span>Buscar</span>
         </button>
-        <button type="button" className="flex min-w-14 flex-col items-center text-slate-400">
+        <button
+          type="button"
+          onClick={() => navigate("/carrinho")}
+          className="relative flex min-w-14 flex-col items-center text-slate-600"
+        >
           <span>🛍️</span>
           <span>Carrinho</span>
+          {totalItems > 0 ? (
+            <span className="absolute right-0 top-0 rounded-full bg-fuchsia-700 px-1.5 text-[10px] font-bold text-white">
+              {totalItems}
+            </span>
+          ) : null}
         </button>
         <button type="button" className="flex min-w-14 flex-col items-center text-slate-400">
           <span>👤</span>

@@ -1,5 +1,6 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import ImgAcai from "../assets/ImgAcai.png";
+import { useCart } from "../context/CartContext";
 
 const grupos = [
   {
@@ -135,9 +136,16 @@ function Adicao() {
   const navigate = useNavigate();
   const { state } = useLocation();
   const item = state?.item;
+  const { addItem } = useCart();
 
   const nomeProduto = item?.title ?? "Açaí 700ml";
   const precoProduto = item?.price ?? "R$ 28,97";
+
+  const itemCarrinho = {
+    id: item?.id ?? `acai-${nomeProduto.toLowerCase().replace(/\s+/g, "-")}`,
+    title: nomeProduto,
+    price: precoProduto,
+  };
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-md bg-zinc-100 text-zinc-900">
@@ -172,6 +180,10 @@ function Adicao() {
         <div className="safe-bottom fixed bottom-0 left-1/2 w-full max-w-md -translate-x-1/2 border-t border-zinc-200 bg-white px-3 pb-3 pt-2 shadow-[0_-8px_20px_rgba(0,0,0,0.08)]">
           <button
             type="button"
+            onClick={() => {
+              addItem(itemCarrinho);
+              navigate("/carrinho");
+            }}
             className="w-full rounded-xl bg-fuchsia-700 py-3 text-xs font-bold uppercase tracking-wide text-white"
           >
             Adicionar ao carrinho • {precoProduto}
