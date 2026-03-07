@@ -6,7 +6,7 @@ const PIX_KEY = "likeacai@pix.com.br";
 const MERCHANT_NAME = "LIKE ACAI";
 const MERCHANT_CITY = "SAO LUIS";
 const TXID = "LIKEACAI001";
-const WHATSAPP_PHONE = "559898883316";
+const WHATSAPP_PHONE = "5598988831316";
 
 function tlv(id, value) {
   return `${id}${String(value.length).padStart(2, "0")}${value}`;
