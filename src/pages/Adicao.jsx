@@ -158,7 +158,7 @@ function Adicao() {
           >
             ← Voltar
           </button>
-          <p className="truncate text-xs text-zinc-600">Monte do seu jeito</p>
+          <p className="truncate text-xs text-zinc-600">Monte do seu jeito wdw</p>
         </div>
 
         <img src={ImgAcai} alt={nomeProduto} className="h-36 w-full object-cover" />
