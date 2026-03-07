@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCart } from "../context/CartContext";
+import BannerAcai from "../assets/IMG-BANNER-ACAI.png";
 
 function NavIcon({ children }) {
   return (
@@ -173,14 +174,11 @@ function Home() {
 
   return (
     <main className="app-shell mx-auto min-h-screen w-full max-w-md bg-transparent pb-28 text-slate-800">
-      <div className="bg-linear-to-r from-fuchsia-700 to-fuchsia-600 px-4 py-2 text-center text-xs font-semibold text-white">
-        🎁 Promoção de primeiro pedido ativada, aproveite!
-      </div>
-
+      
  
-      <section className="relative h-36 w-full overflow-hidden sm:h-4">
+      <section className="relative h-52 w-full overflow-hidden sm:h-64">
         <img
-          src="https://images.unsplash.com/photo-1611690078903-71dc5a49f5e3?auto=format&fit=crop&w=1400&q=80"
+          src={BannerAcai}
           alt="LikeAçai banner"
           fetchPriority="high"
           className="h-full w-full object-cover"
