@@ -47,6 +47,7 @@ function Carrinho() {
                 <div>
                   <h2 className="text-sm font-semibold">{item.title}</h2>
                   <p className="text-xs text-slate-500">{item.price}</p>
+                  {item.customizacao ? <p className="mt-1 text-[11px] text-slate-500">{item.customizacao}</p> : null}
                 </div>
                 <button
                   type="button"

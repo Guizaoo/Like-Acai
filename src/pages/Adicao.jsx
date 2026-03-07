@@ -1,12 +1,15 @@
+import { useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import ImgAcai from "../assets/ImgAcai.png";
 import { useCart } from "../context/CartContext";
 
+const VALOR_ACRESCIMO_COMPLEMENTO = 2;
+
 const grupos = [
   {
+    id: "base",
     titulo: "Escolha sua Base",
     subtitulo: "Escolha 1 item",
-    contador: "0/1",
     obrigatorio: true,
     tipo: "radio",
     opcoes: [
@@ -24,9 +27,9 @@ const grupos = [
     ],
   },
   {
+    id: "complementos",
     titulo: "Complementos",
-    subtitulo: "Escolha até 4 itens",
-    contador: "0/4",
+    subtitulo: "Escolha seus complementos",
     obrigatorio: true,
     tipo: "checkbox",
     opcoes: [
@@ -51,9 +54,10 @@ const grupos = [
     ],
   },
   {
+    id: "frutas",
     titulo: "Frutas",
     subtitulo: "Escolha até 3 itens",
-    contador: "0/3",
+    max: 3,
     obrigatorio: false,
     tipo: "checkbox",
     opcoes: [
@@ -66,9 +70,10 @@ const grupos = [
     ],
   },
   {
+    id: "coberturas",
     titulo: "Coberturas",
     subtitulo: "Escolha até 2 itens",
-    contador: "0/2",
+    max: 2,
     obrigatorio: false,
     tipo: "checkbox",
     opcoes: [
@@ -81,9 +86,9 @@ const grupos = [
     ],
   },
   {
+    id: "adicionais",
     titulo: "Adicionais",
     subtitulo: "Escolha se desejar",
-    contador: "0/9",
     obrigatorio: false,
     tipo: "checkbox",
     opcoes: [
@@ -98,15 +103,45 @@ const grupos = [
   },
 ];
 
-function SecaoOpcoes({ grupo }) {
+function normalizePrice(price) {
+  if (!price) return 0;
+
+  const numeric = String(price).replace(/[^\d,]/g, "").replace(".", "").replace(",", ".");
+  const parsed = Number.parseFloat(numeric);
+
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function formatCurrency(value) {
+  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function extractMlSize(productName) {
+  const match = String(productName).match(/(\d+)\s*ml/i);
+  return match ? Number.parseInt(match[1], 10) : null;
+}
+
+function slugify(value) {
+  return String(value)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function SecaoOpcoes({ grupo, selecao, onSelect, contador, subtitulo }) {
+  const qtdSelecionada = grupo.tipo === "radio" ? (selecao ? 1 : 0) : selecao.length;
+  const atingiuLimite = Boolean(grupo.max && qtdSelecionada >= grupo.max);
+
   return (
     <section className="surface-card content-auto rounded-2xl px-3 py-3">
       <div className="mb-2 flex items-start justify-between gap-2">
         <div>
           <h2 className="text-sm font-semibold text-zinc-900">{grupo.titulo}</h2>
-          <p className="text-xs text-zinc-500">{grupo.subtitulo}</p>
+          <p className="text-xs text-zinc-500">{subtitulo}</p>
         </div>
-        <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-semibold text-zinc-500">{grupo.contador}</span>
+        <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-semibold text-zinc-500">{contador}</span>
       </div>
 
       <div className="space-y-1.5">
@@ -121,6 +156,9 @@ function SecaoOpcoes({ grupo }) {
             <input
               type={grupo.tipo}
               name={grupo.titulo}
+              checked={grupo.tipo === "radio" ? selecao === opcao.nome : selecao.includes(opcao.nome)}
+              disabled={grupo.tipo === "checkbox" && Boolean(grupo.max) && !selecao.includes(opcao.nome) && atingiuLimite}
+              onChange={() => onSelect(grupo, opcao.nome)}
               className="h-5 w-5 rounded-full border-slate-300 text-fuchsia-600 focus:ring-fuchsia-500"
             />
           </label>
@@ -140,11 +178,88 @@ function Adicao() {
 
   const nomeProduto = item?.title ?? "Açaí 700ml";
   const precoProduto = item?.price ?? "R$ 28,97";
+  const tamanhoMl = extractMlSize(nomeProduto);
+  const limiteGratisComplementos = [150, 200, 300].includes(tamanhoMl ?? 0) ? 3 : 4;
+  const precoBase = normalizePrice(precoProduto);
 
-  const itemCarrinho = {
-    id: item?.id ?? `acai-${nomeProduto.toLowerCase().replace(/\s+/g, "-")}`,
-    title: nomeProduto,
-    price: precoProduto,
+  const [selecoes, setSelecoes] = useState(() =>
+    grupos.reduce((acc, grupo) => {
+      acc[grupo.id] = grupo.tipo === "radio" ? "" : [];
+      return acc;
+    }, {}),
+  );
+
+  const selecionarOpcao = (grupo, opcaoNome) => {
+    setSelecoes((prev) => {
+      if (grupo.tipo === "radio") {
+        return { ...prev, [grupo.id]: opcaoNome };
+      }
+
+      const selecionadas = prev[grupo.id];
+      const jaSelecionada = selecionadas.includes(opcaoNome);
+
+      if (jaSelecionada) {
+        return { ...prev, [grupo.id]: selecionadas.filter((nome) => nome !== opcaoNome) };
+      }
+
+      if (grupo.max && selecionadas.length >= grupo.max) {
+        return prev;
+      }
+
+      return { ...prev, [grupo.id]: [...selecionadas, opcaoNome] };
+    });
+  };
+
+  const qtdComplementos = selecoes.complementos.length;
+  const qtdComplementosCobrados = Math.max(0, qtdComplementos - limiteGratisComplementos);
+  const acrescimoComplementos = qtdComplementosCobrados * VALOR_ACRESCIMO_COMPLEMENTO;
+  const precoFinal = precoBase + acrescimoComplementos;
+  const precoFinalFormatado = formatCurrency(precoFinal);
+
+  const obrigatoriosPendentes = useMemo(
+    () =>
+      grupos.filter((grupo) => {
+        if (!grupo.obrigatorio) return false;
+        const selecao = selecoes[grupo.id];
+        return grupo.tipo === "radio" ? !selecao : selecao.length === 0;
+      }),
+    [selecoes],
+  );
+
+  const podeAdicionar = obrigatoriosPendentes.length === 0;
+
+  const adicionarAoCarrinho = () => {
+    if (!podeAdicionar) return;
+
+    const resumoPersonalizacao = [
+      selecoes.base ? `Base: ${selecoes.base}` : null,
+      selecoes.complementos.length > 0 ? `Complementos: ${selecoes.complementos.join(", ")}` : null,
+      selecoes.frutas.length > 0 ? `Frutas: ${selecoes.frutas.join(", ")}` : null,
+      selecoes.coberturas.length > 0 ? `Coberturas: ${selecoes.coberturas.join(", ")}` : null,
+      selecoes.adicionais.length > 0 ? `Adicionais: ${selecoes.adicionais.join(", ")}` : null,
+    ]
+      .filter(Boolean)
+      .join(" • ");
+
+    const chavePersonalizacao = [
+      selecoes.base,
+      ...selecoes.complementos,
+      ...selecoes.frutas,
+      ...selecoes.coberturas,
+      ...selecoes.adicionais,
+    ]
+      .map(slugify)
+      .join("_");
+
+    const itemCarrinho = {
+      id: `${item?.id ?? slugify(nomeProduto)}-${chavePersonalizacao || "padrao"}`,
+      title: nomeProduto,
+      price: precoFinalFormatado,
+      customizacao: resumoPersonalizacao,
+    };
+
+    addItem(itemCarrinho);
+    navigate("/carrinho");
   };
 
   return (
@@ -166,27 +281,57 @@ function Adicao() {
         <section className="surface-card mx-3 -mt-4 rounded-2xl px-3 py-3">
           <h1 className="text-base font-semibold">{nomeProduto}</h1>
           <p className="mt-1 text-xs leading-relaxed text-zinc-600">
-            Monte seu açaí com até 4 opções dos complementos para você se deliciar.
+            {limiteGratisComplementos} complementos grátis neste tamanho. Cada complemento extra custa{" "}
+            {formatCurrency(VALOR_ACRESCIMO_COMPLEMENTO)}.
           </p>
-          <p className="mt-2 text-lg font-bold text-fuchsia-700">{precoProduto}</p>
+          <p className="mt-2 text-lg font-bold text-fuchsia-700">{precoFinalFormatado}</p>
+          {qtdComplementosCobrados > 0 ? (
+            <p className="mt-1 text-xs font-medium text-amber-600">
+              Acréscimo atual: +{formatCurrency(acrescimoComplementos)} ({qtdComplementosCobrados} extra)
+            </p>
+          ) : null}
         </section>
 
         <div className="space-y-2.5 px-3 py-3">
           {grupos.map((grupo) => (
-            <SecaoOpcoes key={grupo.titulo} grupo={grupo} />
+            <SecaoOpcoes
+              key={grupo.id}
+              grupo={grupo}
+              selecao={selecoes[grupo.id]}
+              onSelect={selecionarOpcao}
+              subtitulo={
+                grupo.id === "complementos"
+                  ? `${limiteGratisComplementos} grátis • ${formatCurrency(VALOR_ACRESCIMO_COMPLEMENTO)} por adicional`
+                  : grupo.subtitulo
+              }
+              contador={
+                grupo.tipo === "radio"
+                  ? `${selecoes[grupo.id] ? 1 : 0}/1`
+                  : grupo.id === "complementos"
+                    ? `${selecoes[grupo.id].length}/${limiteGratisComplementos} grátis`
+                    : grupo.max
+                      ? `${selecoes[grupo.id].length}/${grupo.max}`
+                      : `${selecoes[grupo.id].length}`
+              }
+            />
           ))}
         </div>
 
         <div className="safe-bottom sticky-panel fixed bottom-0 left-1/2 w-full max-w-md -translate-x-1/2 border-t border-slate-200 px-3 pb-3 pt-2">
+          {!podeAdicionar ? (
+            <p className="mb-2 text-center text-[11px] font-semibold text-fuchsia-700">
+              Complete os obrigatórios: {obrigatoriosPendentes.map((grupo) => grupo.titulo).join(" e ")}.
+            </p>
+          ) : null}
           <button
             type="button"
-            onClick={() => {
-              addItem(itemCarrinho);
-              navigate("/carrinho");
-            }}
-            className="w-full rounded-xl bg-fuchsia-700 py-3 text-xs font-bold uppercase tracking-wide text-white transition-colors duration-200 hover:bg-fuchsia-800"
+            onClick={adicionarAoCarrinho}
+            disabled={!podeAdicionar}
+            className={`w-full rounded-xl py-3 text-xs font-bold uppercase tracking-wide text-white transition-colors duration-200 ${
+              podeAdicionar ? "bg-fuchsia-700 hover:bg-fuchsia-800" : "cursor-not-allowed bg-slate-400"
+            }`}
           >
-            Adicionar ao carrinho • {precoProduto}
+            Adicionar ao carrinho • {precoFinalFormatado}
           </button>
         </div>
       </div>
