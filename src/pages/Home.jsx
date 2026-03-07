@@ -1,20 +1,21 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCart } from "../context/CartContext";
-import BannerAcai from "../assets/IMG-BANNER-ACAI.png";
+import BannerAcai from "../assets/IMG-BANNER-ACAI.optimized.jpg";
 import Acai150ml from "../assets/acai-150ml.avif";
 import Acai200ml from "../assets/acai-200ml.avif";
 import Acai500ml from "../assets/acai-500ml.avif";
-import AguaSemGasImg from "../assets/agua-sem-gas.png";
-import AguaComGasImg from "../assets/agua-com-gas.webp";
-import CocaColaImg from "../assets/coca-cola.jpg";
-import ShakeProteicoImg from "../assets/shake-proteico.webp";
-import SaladaFrutaImg from "../assets/saladad-de-fruta.jpg";
-import H2OLimaoImg from "../assets/h2o.jpg";
+import AguaSemGasImg from "../assets/agua-sem-gas.optimized.jpg";
+import AguaComGasImg from "../assets/agua-com-gas.optimized.jpg";
+import CocaColaImg from "../assets/coca-cola.optimized.jpg";
+import ShakeProteicoImg from "../assets/shake-proteico.optimized.jpg";
+import SaladaFrutaImg from "../assets/saladad-de-fruta.optimized.jpg";
+import H2OLimaoImg from "../assets/h2o.optimized.jpg";
 import HomeIcon from "../assets/home-svgrepo-com.svg";
 import SearchIcon from "../assets/search-svgrepo-com.svg";
 import CartIcon from "../assets/cart-shopping-svgrepo-com.svg";
 import UserIcon from "../assets/user-svgrepo-com.svg";
+import { parseCurrencyToCents } from "../utils/currency";
 
 function NavIcon({ src, alt }) {
   return (
@@ -136,11 +137,11 @@ function CardapioItem({ item, onAdd, canAdd }) {
   return (
     <article
       className="surface-card content-auto group flex cursor-pointer items-start gap-3 rounded-2xl p-3 transition-all duration-200 hover:-translate-y-px hover:border-fuchsia-200 hover:bg-fuchsia-50/50 hover:shadow-[0_10px_20px_rgba(217,70,239,0.12)]"
-      onClick={onAdd}
+      onClick={(event) => onAdd(event.currentTarget)}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
-          onAdd();
+          onAdd(event.currentTarget);
         }
       }}
       role="button"
@@ -175,7 +176,7 @@ function CardapioItem({ item, onAdd, canAdd }) {
               type="button"
               onClick={(event) => {
                 event.stopPropagation();
-                onAdd();
+                onAdd(event.currentTarget.closest("article") ?? event.currentTarget);
               }}
               className="flex h-9 min-w-9 items-center justify-center rounded-full bg-fuchsia-600 px-2 text-xl font-bold text-white transition-colors duration-200 hover:bg-fuchsia-700"
               aria-label={`Adicionar ${item.title}`}
@@ -193,8 +194,12 @@ function Home() {
   const navigate = useNavigate();
   const { addItem, totalItems } = useCart();
   const buscaInputRef = useRef(null);
+  const cartButtonRef = useRef(null);
+  const toastTimeoutRef = useRef(null);
+  const animationTimeoutsRef = useRef([]);
   const [filtro, setFiltro] = useState("");
   const [abaAtiva, setAbaAtiva] = useState("inicio");
+  const [cartToast, setCartToast] = useState({ visible: false, message: "" });
 
   const estiloAba = (aba, estiloInativo = "text-slate-500 hover:bg-slate-100/80 hover:text-slate-800") =>
     `relative flex min-w-16 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2.5 text-xs font-medium transition-all duration-200 ${
@@ -237,8 +242,133 @@ function Home() {
     });
   };
 
+  const runFlyToCart = (origemElemento) => {
+    const botaoCarrinho = cartButtonRef.current;
+    if (!origemElemento || !botaoCarrinho) return;
+
+    const prefersReducedMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    const origemRect = origemElemento.getBoundingClientRect();
+    const destinoRect = botaoCarrinho.getBoundingClientRect();
+    const pontoOrigemX = origemRect.left + origemRect.width / 2;
+    const pontoOrigemY = origemRect.top + origemRect.height / 2;
+    const pontoDestinoX = destinoRect.left + destinoRect.width / 2;
+    const pontoDestinoY = destinoRect.top + destinoRect.height / 2;
+    const pontoMeioX = pontoOrigemX + (pontoDestinoX - pontoOrigemX) * 0.55;
+    const pontoMeioY = Math.min(pontoOrigemY, pontoDestinoY) - 90;
+
+    origemElemento.classList.remove("item-added-flash");
+    void origemElemento.offsetWidth;
+    origemElemento.classList.add("item-added-flash");
+
+    const tokenVoador = document.createElement("div");
+    tokenVoador.className = "fly-to-cart-token";
+    tokenVoador.style.left = `${pontoOrigemX}px`;
+    tokenVoador.style.top = `${pontoOrigemY}px`;
+
+    const imagemOrigem = origemElemento.querySelector("img");
+    if (imagemOrigem?.src) {
+      const img = document.createElement("img");
+      img.src = imagemOrigem.src;
+      img.alt = "";
+      img.className = "fly-to-cart-token__image";
+      tokenVoador.appendChild(img);
+    } else {
+      tokenVoador.textContent = "+";
+    }
+
+    document.body.appendChild(tokenVoador);
+
+    if (prefersReducedMotion) {
+      tokenVoador.remove();
+    } else {
+      const animacao = tokenVoador.animate(
+        [
+          {
+            left: `${pontoOrigemX}px`,
+            top: `${pontoOrigemY}px`,
+            transform: "translate(-50%, -50%) scale(1)",
+            opacity: 0.98,
+            offset: 0,
+          },
+          {
+            left: `${pontoMeioX}px`,
+            top: `${pontoMeioY}px`,
+            transform: "translate(-50%, -50%) scale(0.92)",
+            opacity: 1,
+            offset: 0.62,
+          },
+          {
+            left: `${pontoDestinoX}px`,
+            top: `${pontoDestinoY}px`,
+            transform: "translate(-50%, -50%) scale(0.26)",
+            opacity: 0.1,
+            offset: 1,
+          },
+        ],
+        {
+          duration: 980,
+          easing: "cubic-bezier(0.16, 0.84, 0.22, 1)",
+        },
+      );
+
+      animacao.onfinish = () => tokenVoador.remove();
+      animationTimeoutsRef.current.push(setTimeout(() => tokenVoador.remove(), 1200));
+    }
+
+    const badge = document.createElement("div");
+    badge.className = "cart-plus-one";
+    badge.textContent = "+1";
+    badge.style.left = `${pontoDestinoX}px`;
+    badge.style.top = `${pontoDestinoY}px`;
+    document.body.appendChild(badge);
+    animationTimeoutsRef.current.push(setTimeout(() => badge.remove(), 900));
+
+    botaoCarrinho.classList.remove("cart-bump");
+    void botaoCarrinho.offsetWidth;
+    botaoCarrinho.classList.add("cart-bump");
+  };
+
+  const showCartToast = (itemTitle) => {
+    if (toastTimeoutRef.current) {
+      clearTimeout(toastTimeoutRef.current);
+    }
+
+    setCartToast({
+      visible: true,
+      message: `Você adicionou ao carrinho: ${itemTitle}`,
+    });
+
+    toastTimeoutRef.current = setTimeout(() => {
+      setCartToast((prev) => ({ ...prev, visible: false }));
+    }, 2300);
+  };
+
+  useEffect(
+    () => () => {
+      if (toastTimeoutRef.current) {
+        clearTimeout(toastTimeoutRef.current);
+      }
+      animationTimeoutsRef.current.forEach((timeoutId) => clearTimeout(timeoutId));
+      animationTimeoutsRef.current = [];
+    },
+    [],
+  );
+
   return (
     <main className="app-shell mx-auto min-h-screen w-full max-w-md bg-transparent pb-28 text-slate-800">
+      <div
+        className={`pointer-events-none fixed left-1/2 top-3 z-50 w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 rounded-2xl border border-emerald-200 bg-emerald-50/95 px-4 py-2 text-center text-xs font-semibold text-emerald-700 shadow-[0_10px_24px_rgba(16,185,129,0.2)] backdrop-blur-sm transition-all duration-300 ${
+          cartToast.visible ? "translate-y-0 opacity-100" : "-translate-y-3 opacity-0"
+        }`}
+        role="status"
+        aria-live="polite"
+      >
+        {cartToast.message}
+      </div>
       
  
       <section className="relative h-52 w-full overflow-hidden sm:h-64">
@@ -289,10 +419,14 @@ function Home() {
                       key={item.id}
                       item={item}
                       canAdd={secao.categoria === "Açaí Montado"}
-                      onAdd={() =>
+                      onAdd={(origemElemento) =>
                         secao.categoria === "Açaí Montado"
                           ? navigate("/adicao", { state: { item } })
-                          : addItem(item)
+                          : (() => {
+                              addItem({ ...item, unitPriceCents: parseCurrencyToCents(item.price) });
+                              runFlyToCart(origemElemento);
+                              showCartToast(item.title);
+                            })()
                       }
                     />
                   ))}
@@ -325,6 +459,7 @@ function Home() {
             {abaAtiva === "buscar" ? <span className="absolute bottom-1 h-1 w-6 rounded-full bg-fuchsia-600" /> : null}
           </button>
           <button
+            ref={cartButtonRef}
             type="button"
             onClick={() => {
               setAbaAtiva("carrinho");

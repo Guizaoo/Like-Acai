@@ -46,7 +46,7 @@ function Carrinho() {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h2 className="text-sm font-semibold">{item.title}</h2>
-                  <p className="text-xs text-slate-500">{item.price}</p>
+                  <p className="text-xs text-slate-500">{item.priceFormatted}</p>
                   {item.customizacao ? <p className="mt-1 text-[11px] text-slate-500">{item.customizacao}</p> : null}
                 </div>
                 <button
@@ -88,9 +88,11 @@ function Carrinho() {
           </div>
           <button
             type="button"
+            onClick={() => navigate("/pagamento")}
+            aria-label="Ir para pagamento via Pix"
             className="w-full rounded-xl bg-fuchsia-700 py-3 text-xs font-bold uppercase text-white transition-colors duration-200 hover:bg-fuchsia-800"
           >
-            Finalizar pedido
+            Ir para pagamento Pix
           </button>
         </footer>
       ) : null}

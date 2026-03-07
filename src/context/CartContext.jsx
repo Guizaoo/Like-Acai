@@ -1,18 +1,19 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { formatCents, parseCurrencyToCents } from "../utils/currency";
 
 const CartContext = createContext(null);
 
-function normalizePrice(price) {
-  if (!price) return 0;
+function normalizeStoredItem(item) {
+  const quantity = Number.isFinite(item?.quantity) ? Math.max(1, item.quantity) : 1;
+  const unitPriceCents = Number.isFinite(item?.unitPriceCents)
+    ? Math.max(0, Math.round(item.unitPriceCents))
+    : parseCurrencyToCents(item?.price);
 
-  const numeric = String(price).replace(/[^\d,]/g, "").replace(".", "").replace(",", ".");
-  const parsed = Number.parseFloat(numeric);
-
-  return Number.isNaN(parsed) ? 0 : parsed;
-}
-
-function formatCurrency(value) {
-  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  return {
+    ...item,
+    quantity,
+    unitPriceCents,
+  };
 }
 
 export function CartProvider({ children }) {
@@ -21,7 +22,9 @@ export function CartProvider({ children }) {
     if (!saved) return [];
 
     try {
-      return JSON.parse(saved);
+      const parsed = JSON.parse(saved);
+      if (!Array.isArray(parsed)) return [];
+      return parsed.map(normalizeStoredItem);
     } catch {
       return [];
     }
@@ -33,15 +36,16 @@ export function CartProvider({ children }) {
 
   const addItem = (item) => {
     setItems((prev) => {
-      const existing = prev.find((cartItem) => cartItem.id === item.id);
+      const normalizedItem = normalizeStoredItem(item);
+      const existing = prev.find((cartItem) => cartItem.id === normalizedItem.id);
 
       if (existing) {
         return prev.map((cartItem) =>
-          cartItem.id === item.id ? { ...cartItem, quantity: cartItem.quantity + 1 } : cartItem,
+          cartItem.id === normalizedItem.id ? { ...cartItem, quantity: cartItem.quantity + 1 } : cartItem,
         );
       }
 
-      return [...prev, { ...item, quantity: 1 }];
+      return [...prev, normalizedItem];
     });
   };
 
@@ -61,24 +65,27 @@ export function CartProvider({ children }) {
 
   const value = useMemo(() => {
     const totalItems = items.reduce((acc, item) => acc + item.quantity, 0);
-    const totalPrice = items.reduce((acc, item) => acc + normalizePrice(item.price) * item.quantity, 0);
+    const totalPriceCents = items.reduce((acc, item) => acc + item.unitPriceCents * item.quantity, 0);
 
     return {
-      items,
+      items: items.map((item) => ({
+        ...item,
+        priceFormatted: formatCents(item.unitPriceCents),
+      })),
       addItem,
       removeItem,
       changeQuantity,
       clearCart,
       totalItems,
-      totalPrice,
-      totalPriceFormatted: formatCurrency(totalPrice),
+      totalPriceCents,
+      totalPriceFormatted: formatCents(totalPriceCents),
     };
   }, [items]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }
 
-
+// eslint-disable-next-line react-refresh/only-export-components
 export function useCart() {
   const context = useContext(CartContext);
 

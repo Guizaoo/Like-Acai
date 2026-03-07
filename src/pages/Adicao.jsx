@@ -1,9 +1,14 @@
 import { useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import ImgAcai from "../assets/ImgAcai.png";
+import ImgAcai from "../assets/ImgAcai.optimized.jpg";
 import { useCart } from "../context/CartContext";
-
-const VALOR_ACRESCIMO_COMPLEMENTO = 2;
+import {
+  calculateExtraComplementCents,
+  EXTRA_COMPLEMENT_CENTS,
+  getChargedComplementCount,
+  getFreeComplementLimit,
+} from "../utils/acaiPricing";
+import { formatCents, parseCurrencyToCents } from "../utils/currency";
 
 const grupos = [
   {
@@ -103,19 +108,6 @@ const grupos = [
   },
 ];
 
-function normalizePrice(price) {
-  if (!price) return 0;
-
-  const numeric = String(price).replace(/[^\d,]/g, "").replace(".", "").replace(",", ".");
-  const parsed = Number.parseFloat(numeric);
-
-  return Number.isNaN(parsed) ? 0 : parsed;
-}
-
-function formatCurrency(value) {
-  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-}
-
 function extractMlSize(productName) {
   const match = String(productName).match(/(\d+)\s*ml/i);
   return match ? Number.parseInt(match[1], 10) : null;
@@ -179,8 +171,8 @@ function Adicao() {
   const nomeProduto = item?.title ?? "Açaí 700ml";
   const precoProduto = item?.price ?? "R$ 28,97";
   const tamanhoMl = extractMlSize(nomeProduto);
-  const limiteGratisComplementos = [150, 200, 300].includes(tamanhoMl ?? 0) ? 3 : 4;
-  const precoBase = normalizePrice(precoProduto);
+  const limiteGratisComplementos = getFreeComplementLimit(tamanhoMl);
+  const precoBaseCents = Number.isFinite(item?.unitPriceCents) ? item.unitPriceCents : parseCurrencyToCents(precoProduto);
 
   const [selecoes, setSelecoes] = useState(() =>
     grupos.reduce((acc, grupo) => {
@@ -211,10 +203,10 @@ function Adicao() {
   };
 
   const qtdComplementos = selecoes.complementos.length;
-  const qtdComplementosCobrados = Math.max(0, qtdComplementos - limiteGratisComplementos);
-  const acrescimoComplementos = qtdComplementosCobrados * VALOR_ACRESCIMO_COMPLEMENTO;
-  const precoFinal = precoBase + acrescimoComplementos;
-  const precoFinalFormatado = formatCurrency(precoFinal);
+  const qtdComplementosCobrados = getChargedComplementCount(qtdComplementos, limiteGratisComplementos);
+  const acrescimoComplementosCents = calculateExtraComplementCents(qtdComplementos, limiteGratisComplementos);
+  const precoFinalCents = precoBaseCents + acrescimoComplementosCents;
+  const precoFinalFormatado = formatCents(precoFinalCents);
 
   const obrigatoriosPendentes = useMemo(
     () =>
@@ -255,6 +247,7 @@ function Adicao() {
       id: `${item?.id ?? slugify(nomeProduto)}-${chavePersonalizacao || "padrao"}`,
       title: nomeProduto,
       price: precoFinalFormatado,
+      unitPriceCents: precoFinalCents,
       customizacao: resumoPersonalizacao,
     };
 
@@ -282,12 +275,12 @@ function Adicao() {
           <h1 className="text-base font-semibold">{nomeProduto}</h1>
           <p className="mt-1 text-xs leading-relaxed text-zinc-600">
             {limiteGratisComplementos} complementos grátis neste tamanho. Cada complemento extra custa{" "}
-            {formatCurrency(VALOR_ACRESCIMO_COMPLEMENTO)}.
+            {formatCents(EXTRA_COMPLEMENT_CENTS)}.
           </p>
           <p className="mt-2 text-lg font-bold text-fuchsia-700">{precoFinalFormatado}</p>
           {qtdComplementosCobrados > 0 ? (
             <p className="mt-1 text-xs font-medium text-amber-600">
-              Acréscimo atual: +{formatCurrency(acrescimoComplementos)} ({qtdComplementosCobrados} extra)
+              Acréscimo atual: +{formatCents(acrescimoComplementosCents)} ({qtdComplementosCobrados} extra)
             </p>
           ) : null}
         </section>
@@ -301,7 +294,7 @@ function Adicao() {
               onSelect={selecionarOpcao}
               subtitulo={
                 grupo.id === "complementos"
-                  ? `${limiteGratisComplementos} grátis • ${formatCurrency(VALOR_ACRESCIMO_COMPLEMENTO)} por adicional`
+                  ? `${limiteGratisComplementos} grátis • ${formatCents(EXTRA_COMPLEMENT_CENTS)} por adicional`
                   : grupo.subtitulo
               }
               contador={
