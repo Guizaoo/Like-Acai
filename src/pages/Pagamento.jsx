@@ -6,7 +6,8 @@ const PIX_KEY = "likeacai@pix.com.br";
 const MERCHANT_NAME = "LIKE ACAI";
 const MERCHANT_CITY = "SAO LUIS";
 const TXID = "LIKEACAI001";
-const WHATSAPP_PHONE = "5598988831316";
+const WHATSAPP_PHONE = "559898883316";
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
 function tlv(id, value) {
   return `${id}${String(value.length).padStart(2, "0")}${value}`;
@@ -48,6 +49,29 @@ function buildPixPayload(amountCents) {
   return payloadWithoutCRC + crc16(payloadWithoutCRC);
 }
 
+async function reverseGeocodeWithGoogleMaps(latitude, longitude) {
+  if (!GOOGLE_MAPS_API_KEY) return null;
+
+  try {
+    const url = new URL("https://maps.googleapis.com/maps/api/geocode/json");
+    url.searchParams.set("latlng", `${latitude},${longitude}`);
+    url.searchParams.set("language", "pt-BR");
+    url.searchParams.set("key", GOOGLE_MAPS_API_KEY);
+
+    const response = await fetch(url.toString());
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    if (data.status !== "OK" || !Array.isArray(data.results) || data.results.length === 0) {
+      return null;
+    }
+
+    return data.results[0].formatted_address ?? null;
+  } catch {
+    return null;
+  }
+}
+
 function Pagamento() {
   const navigate = useNavigate();
   const { items, totalPriceCents, totalPriceFormatted, clearCart } = useCart();
@@ -55,6 +79,7 @@ function Pagamento() {
   const [isLocating, setIsLocating] = useState(false);
   const [locationError, setLocationError] = useState("");
   const [manualLocationLink, setManualLocationLink] = useState("");
+  const [resolvedAddress, setResolvedAddress] = useState("");
 
   const pixPayload = useMemo(() => buildPixPayload(totalPriceCents), [totalPriceCents]);
   const qrCodeUrl = useMemo(
@@ -72,12 +97,15 @@ function Pagamento() {
     }
   };
 
-  const sendToWhatsAppWithLocation = (mapsLink) => {
+  const sendToWhatsAppWithLocation = (mapsLink, addressText = "") => {
     const message = [
       `Olá! Já paguei meu pedido via Pix (${totalPriceFormatted}).`,
-      `Localização para entrega: ${mapsLink}`,
+      addressText ? `Endereço aproximado: ${addressText}` : null,
+      `Localização para entrega (Google Maps): ${mapsLink}`,
       "Aguardando confirmação do pedido.",
-    ].join("\n");
+    ]
+      .filter(Boolean)
+      .join("\n");
     const encodedMessage = encodeURIComponent(message);
     const primaryUrl = `https://wa.me/${WHATSAPP_PHONE}?text=${encodedMessage}`;
     const fallbackUrl = `https://api.whatsapp.com/send?phone=${WHATSAPP_PHONE}&text=${encodedMessage}`;
@@ -99,11 +127,15 @@ function Pagamento() {
     setLocationError("");
     setIsLocating(true);
     navigator.geolocation.getCurrentPosition(
-      (position) => {
+      async (position) => {
         const { latitude, longitude } = position.coords;
         const mapsLink = `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
+        const addressText =
+          (await reverseGeocodeWithGoogleMaps(latitude, longitude)) ??
+          `Lat ${latitude.toFixed(6)}, Lng ${longitude.toFixed(6)}`;
+        setResolvedAddress(addressText);
         setIsLocating(false);
-        sendToWhatsAppWithLocation(mapsLink);
+        sendToWhatsAppWithLocation(mapsLink, addressText);
       },
       () => {
         setIsLocating(false);
@@ -125,7 +157,7 @@ function Pagamento() {
     }
 
     setLocationError("");
-    sendToWhatsAppWithLocation(trimmed);
+    sendToWhatsAppWithLocation(trimmed, resolvedAddress);
   };
 
   if (items.length === 0) {
@@ -212,7 +244,17 @@ function Pagamento() {
             Enviar localização manual no WhatsApp
           </button>
         </div>
+        {resolvedAddress ? (
+          <p className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-[11px] text-slate-600">
+            Endereço detectado: <span className="font-semibold">{resolvedAddress}</span>
+          </p>
+        ) : null}
         {locationError ? <p className="mt-2 text-center text-xs font-semibold text-rose-600">{locationError}</p> : null}
+        {!GOOGLE_MAPS_API_KEY ? (
+          <p className="mt-2 text-center text-[11px] text-amber-600">
+            Dica: configure `VITE_GOOGLE_MAPS_API_KEY` para enviar endereço completo automaticamente.
+          </p>
+        ) : null}
       </section>
     </main>
   );
