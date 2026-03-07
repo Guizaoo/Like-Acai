@@ -52,6 +52,9 @@ function Pagamento() {
   const navigate = useNavigate();
   const { items, totalPriceCents, totalPriceFormatted, clearCart } = useCart();
   const [copied, setCopied] = useState(false);
+  const [isLocating, setIsLocating] = useState(false);
+  const [locationError, setLocationError] = useState("");
+  const [manualLocationLink, setManualLocationLink] = useState("");
 
   const pixPayload = useMemo(() => buildPixPayload(totalPriceCents), [totalPriceCents]);
   const qrCodeUrl = useMemo(
@@ -69,8 +72,12 @@ function Pagamento() {
     }
   };
 
-  const goToWhatsAppForLocation = () => {
-    const message = `Olá! Já paguei meu pedido via Pix (${totalPriceFormatted}). Vou enviar minha localização para entrega agora.`;
+  const sendToWhatsAppWithLocation = (mapsLink) => {
+    const message = [
+      `Olá! Já paguei meu pedido via Pix (${totalPriceFormatted}).`,
+      `Localização para entrega: ${mapsLink}`,
+      "Aguardando confirmação do pedido.",
+    ].join("\n");
     const encodedMessage = encodeURIComponent(message);
     const primaryUrl = `https://wa.me/${WHATSAPP_PHONE}?text=${encodedMessage}`;
     const fallbackUrl = `https://api.whatsapp.com/send?phone=${WHATSAPP_PHONE}&text=${encodedMessage}`;
@@ -81,6 +88,44 @@ function Pagamento() {
     }
 
     clearCart();
+  };
+
+  const shareCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationError("Seu navegador não suporta geolocalização. Use o link manual abaixo.");
+      return;
+    }
+
+    setLocationError("");
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        const mapsLink = `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
+        setIsLocating(false);
+        sendToWhatsAppWithLocation(mapsLink);
+      },
+      () => {
+        setIsLocating(false);
+        setLocationError("Não foi possível obter sua localização. Use o envio manual abaixo.");
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 12000,
+        maximumAge: 0,
+      },
+    );
+  };
+
+  const shareManualLocation = () => {
+    const trimmed = manualLocationLink.trim();
+    if (!trimmed) {
+      setLocationError("Cole um link válido do Google Maps para enviar.");
+      return;
+    }
+
+    setLocationError("");
+    sendToWhatsAppWithLocation(trimmed);
   };
 
   if (items.length === 0) {
@@ -144,11 +189,30 @@ function Pagamento() {
       <section className="px-3 pt-3">
         <button
           type="button"
-          onClick={goToWhatsAppForLocation}
+          onClick={shareCurrentLocation}
+          disabled={isLocating}
           className="w-full rounded-xl bg-emerald-600 py-3 text-xs font-bold uppercase tracking-wide text-white transition-colors duration-200 hover:bg-emerald-700"
         >
-          Já paguei, enviar localização no WhatsApp
+          {isLocating ? "Capturando localização..." : "Já paguei, enviar localização automática"}
         </button>
+        <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
+          <p className="text-[11px] font-semibold text-slate-600">Se preferir, envie localização manual</p>
+          <input
+            type="url"
+            value={manualLocationLink}
+            onChange={(event) => setManualLocationLink(event.target.value)}
+            placeholder="Cole aqui o link da sua localização do Google Maps"
+            className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-xs outline-none ring-fuchsia-500 focus:ring"
+          />
+          <button
+            type="button"
+            onClick={shareManualLocation}
+            className="mt-2 w-full rounded-lg border border-fuchsia-200 bg-fuchsia-50 py-2 text-xs font-semibold text-fuchsia-700 transition-colors duration-200 hover:bg-fuchsia-100"
+          >
+            Enviar localização manual no WhatsApp
+          </button>
+        </div>
+        {locationError ? <p className="mt-2 text-center text-xs font-semibold text-rose-600">{locationError}</p> : null}
       </section>
     </main>
   );
