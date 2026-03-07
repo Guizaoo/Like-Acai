@@ -71,11 +71,16 @@ function Pagamento() {
 
   const goToWhatsAppForLocation = () => {
     const message = `Olá! Já paguei meu pedido via Pix (${totalPriceFormatted}). Vou enviar minha localização para entrega agora.`;
-    const url = `https://wa.me/${WHATSAPP_PHONE}?text=${encodeURIComponent(message)}`;
+    const encodedMessage = encodeURIComponent(message);
+    const primaryUrl = `https://wa.me/${WHATSAPP_PHONE}?text=${encodedMessage}`;
+    const fallbackUrl = `https://api.whatsapp.com/send?phone=${WHATSAPP_PHONE}&text=${encodedMessage}`;
+
+    const openedWindow = window.open(primaryUrl, "_blank", "noopener,noreferrer");
+    if (!openedWindow) {
+      window.location.assign(fallbackUrl);
+    }
 
     clearCart();
-    localStorage.removeItem("like-acai-cart");
-    window.location.assign(url);
   };
 
   if (items.length === 0) {
