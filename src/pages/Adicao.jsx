@@ -100,20 +100,20 @@ const grupos = [
 
 function SecaoOpcoes({ grupo }) {
   return (
-    <section className="rounded-2xl border border-zinc-200 bg-white px-3 py-3 shadow-sm">
+    <section className="surface-card content-auto rounded-2xl px-3 py-3">
       <div className="mb-2 flex items-start justify-between gap-2">
         <div>
           <h2 className="text-sm font-semibold text-zinc-900">{grupo.titulo}</h2>
           <p className="text-xs text-zinc-500">{grupo.subtitulo}</p>
         </div>
-        <span className="rounded-full bg-zinc-100 px-2 py-1 text-[11px] font-semibold text-zinc-500">{grupo.contador}</span>
+        <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-semibold text-zinc-500">{grupo.contador}</span>
       </div>
 
       <div className="space-y-1.5">
         {grupo.opcoes.map((opcao) => (
           <label
             key={`${grupo.titulo}-${opcao.nome}`}
-            className="flex min-h-10 items-center justify-between gap-2 rounded-xl px-1"
+            className="flex min-h-10 items-center justify-between gap-2 rounded-xl px-1 transition-colors duration-150 hover:bg-slate-50"
           >
             <span className={`text-[13px] ${opcao.destaque ? "font-medium text-fuchsia-700" : "text-zinc-700"}`}>
               {opcao.nome}
@@ -121,7 +121,7 @@ function SecaoOpcoes({ grupo }) {
             <input
               type={grupo.tipo}
               name={grupo.titulo}
-              className="h-5 w-5 rounded-full border-zinc-300 text-fuchsia-600 focus:ring-fuchsia-500"
+              className="h-5 w-5 rounded-full border-slate-300 text-fuchsia-600 focus:ring-fuchsia-500"
             />
           </label>
         ))}
@@ -148,22 +148,22 @@ function Adicao() {
   };
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-md bg-zinc-100 text-zinc-900">
+    <main className="app-shell mx-auto min-h-screen w-full max-w-md bg-transparent text-zinc-900">
       <div className="min-h-screen pb-28">
-        <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-zinc-200 bg-white px-3 py-2">
+        <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-slate-200/80 bg-white/90 px-3 py-2 backdrop-blur">
           <button
             type="button"
             onClick={() => navigate(-1)}
-            className="rounded-full border border-zinc-200 px-3 py-1.5 text-xs font-semibold text-fuchsia-600"
+            className="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-semibold text-fuchsia-700 transition-colors duration-200 hover:bg-fuchsia-50"
           >
             ← Voltar
           </button>
-          <p className="truncate text-xs text-zinc-600">Monte do seu jeito wdw</p>
+          <p className="truncate text-xs text-zinc-600">Monte do seu jeito </p>
         </div>
 
         <img src={ImgAcai} alt={nomeProduto} className="h-36 w-full object-cover" />
 
-        <section className="bg-white px-3 py-3 shadow-sm">
+        <section className="surface-card mx-3 -mt-4 rounded-2xl px-3 py-3">
           <h1 className="text-base font-semibold">{nomeProduto}</h1>
           <p className="mt-1 text-xs leading-relaxed text-zinc-600">
             Monte seu açaí com até 4 opções dos complementos para você se deliciar.
@@ -177,14 +177,14 @@ function Adicao() {
           ))}
         </div>
 
-        <div className="safe-bottom fixed bottom-0 left-1/2 w-full max-w-md -translate-x-1/2 border-t border-zinc-200 bg-white px-3 pb-3 pt-2 shadow-[0_-8px_20px_rgba(0,0,0,0.08)]">
+        <div className="safe-bottom sticky-panel fixed bottom-0 left-1/2 w-full max-w-md -translate-x-1/2 border-t border-slate-200 px-3 pb-3 pt-2">
           <button
             type="button"
             onClick={() => {
               addItem(itemCarrinho);
               navigate("/carrinho");
             }}
-            className="w-full rounded-xl bg-fuchsia-700 py-3 text-xs font-bold uppercase tracking-wide text-white"
+            className="w-full rounded-xl bg-fuchsia-700 py-3 text-xs font-bold uppercase tracking-wide text-white transition-colors duration-200 hover:bg-fuchsia-800"
           >
             Adicionar ao carrinho • {precoProduto}
           </button>

@@ -1,17 +1,61 @@
 @import "tailwindcss";
 
-
-
 :root {
   color-scheme: light;
+  --bg-page: #eef2ff;
+  --bg-surface: #ffffff;
+  --text-primary: #0f172a;
+  --text-muted: #64748b;
+  --border-soft: rgba(148, 163, 184, 0.28);
+  --shadow-soft: 0 8px 22px rgba(15, 23, 42, 0.08);
+  --shadow-float: 0 12px 28px rgba(15, 23, 42, 0.14);
 }
 
 body {
   margin: 0;
-  background-color: #f1f5f9;
+  background:
+    radial-gradient(60rem 22rem at 15% -12%, rgba(217, 70, 239, 0.18), transparent 55%),
+    radial-gradient(48rem 18rem at 85% -10%, rgba(59, 130, 246, 0.16), transparent 60%),
+    var(--bg-page);
+  color: var(--text-primary);
   font-family: "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+img {
+  display: block;
+  max-width: 100%;
 }
 
 .safe-bottom {
   padding-bottom: calc(env(safe-area-inset-bottom) + 0.75rem);
+}
+
+.app-shell {
+  position: relative;
+}
+
+.surface-card {
+  border: 1px solid var(--border-soft);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-soft);
+}
+
+.sticky-panel {
+  border: 1px solid rgba(226, 232, 240, 0.85);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: var(--shadow-float);
+  backdrop-filter: blur(12px);
+}
+
+.content-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: 1px 600px;
 }
