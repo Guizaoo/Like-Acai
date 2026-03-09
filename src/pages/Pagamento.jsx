@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 
-const PIX_KEY = "likeacai@pix.com.br";
+const PIX_KEY = "04151174370";
 const MERCHANT_NAME = "LIKE ACAI";
 const MERCHANT_CITY = "SAO LUIS";
 const TXID = "LIKEACAI001";
@@ -72,14 +72,52 @@ async function reverseGeocodeWithGoogleMaps(latitude, longitude) {
   }
 }
 
+async function geocodeAddressWithGoogleMaps(address) {
+  if (!GOOGLE_MAPS_API_KEY) return { error: "missing_key" };
+
+  try {
+    const url = new URL("https://maps.googleapis.com/maps/api/geocode/json");
+    url.searchParams.set("address", address);
+    url.searchParams.set("region", "br");
+    url.searchParams.set("language", "pt-BR");
+    url.searchParams.set("key", GOOGLE_MAPS_API_KEY);
+
+    const response = await fetch(url.toString());
+    if (!response.ok) return { error: "network" };
+
+    const data = await response.json();
+    if (data.status !== "OK" || !Array.isArray(data.results) || data.results.length === 0) {
+      return { error: data.status || "not_found", errorMessage: data.error_message ?? "" };
+    }
+
+    const first = data.results[0];
+    const location = first?.geometry?.location;
+    if (typeof location?.lat !== "number" || typeof location?.lng !== "number") {
+      return { error: "not_found", errorMessage: "" };
+    }
+
+    return {
+      latitude: location.lat,
+      longitude: location.lng,
+      formattedAddress: first.formatted_address ?? address,
+    };
+  } catch {
+    return { error: "network" };
+  }
+}
+
 function Pagamento() {
   const navigate = useNavigate();
   const { items, totalPriceCents, totalPriceFormatted, clearCart } = useCart();
   const [copied, setCopied] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
   const [locationError, setLocationError] = useState("");
+  const [mapsError, setMapsError] = useState("");
   const [manualLocationLink, setManualLocationLink] = useState("");
   const [resolvedAddress, setResolvedAddress] = useState("");
+  const [addressQuery, setAddressQuery] = useState("");
+  const [isSearchingAddress, setIsSearchingAddress] = useState(false);
+  const [previewMapUrl, setPreviewMapUrl] = useState("");
 
   const pixPayload = useMemo(() => buildPixPayload(totalPriceCents), [totalPriceCents]);
   const qrCodeUrl = useMemo(
@@ -130,10 +168,13 @@ function Pagamento() {
       async (position) => {
         const { latitude, longitude } = position.coords;
         const mapsLink = `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
+        const embedUrl = `https://www.google.com/maps?q=${latitude},${longitude}&z=17&output=embed`;
         const addressText =
           (await reverseGeocodeWithGoogleMaps(latitude, longitude)) ??
           `Lat ${latitude.toFixed(6)}, Lng ${longitude.toFixed(6)}`;
         setResolvedAddress(addressText);
+        setPreviewMapUrl(embedUrl);
+        setManualLocationLink(mapsLink);
         setIsLocating(false);
         sendToWhatsAppWithLocation(mapsLink, addressText);
       },
@@ -147,6 +188,61 @@ function Pagamento() {
         maximumAge: 0,
       },
     );
+  };
+
+  const searchAddressInMaps = async () => {
+    const trimmedAddress = addressQuery.trim();
+    if (!trimmedAddress) {
+      setMapsError("Digite seu endereço para localizar no Google Maps.");
+      return;
+    }
+
+    setMapsError("");
+    setLocationError("");
+    setIsSearchingAddress(true);
+
+    const result = await geocodeAddressWithGoogleMaps(trimmedAddress);
+    if (result?.error) {
+      setIsSearchingAddress(false);
+      if (result.error === "missing_key") {
+        setMapsError("Falta configurar a chave do Google Maps.");
+        return;
+      }
+      if (result.error === "REQUEST_DENIED") {
+        const detail = result.errorMessage ? ` (${result.errorMessage})` : "";
+        setMapsError(`Google recusou a chave. Confira restrições de domínio e API Geocoding${detail}`);
+        return;
+      }
+      if (result.error === "OVER_DAILY_LIMIT" || result.error === "OVER_QUERY_LIMIT") {
+        setMapsError("Limite da API Google Maps atingido. Verifique billing e cota.");
+        return;
+      }
+      if (result.error === "ZERO_RESULTS") {
+        setMapsError("Endereço não encontrado. Tente com rua, número e bairro.");
+        return;
+      }
+      setMapsError("Não foi possível localizar esse endereço agora.");
+      return;
+    }
+
+    const { latitude, longitude, formattedAddress } = result;
+    const mapsLink = `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
+    const embedUrl = `https://www.google.com/maps?q=${latitude},${longitude}&z=17&output=embed`;
+
+    setResolvedAddress(formattedAddress);
+    setPreviewMapUrl(embedUrl);
+    setManualLocationLink(mapsLink);
+    setIsSearchingAddress(false);
+  };
+
+  const shareResolvedAddress = () => {
+    if (!manualLocationLink.trim()) {
+      setLocationError("Primeiro localize seu endereço para enviar.");
+      return;
+    }
+
+    setLocationError("");
+    sendToWhatsAppWithLocation(manualLocationLink.trim(), resolvedAddress);
   };
 
   const shareManualLocation = () => {
@@ -227,6 +323,45 @@ function Pagamento() {
         >
           {isLocating ? "Capturando localização..." : "Já paguei, enviar localização automática"}
         </button>
+        <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
+          <p className="text-[11px] font-semibold text-slate-600">Ou digite seu endereço para localizar no Google Maps</p>
+          <input
+            type="text"
+            value={addressQuery}
+            onChange={(event) => setAddressQuery(event.target.value)}
+            placeholder="Ex: Rua X, 123, Bairro, Cidade"
+            className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-xs outline-none ring-fuchsia-500 focus:ring"
+          />
+          <button
+            type="button"
+            onClick={searchAddressInMaps}
+            disabled={isSearchingAddress}
+            className="mt-2 w-full rounded-lg border border-emerald-200 bg-emerald-50 py-2 text-xs font-semibold text-emerald-700 transition-colors duration-200 hover:bg-emerald-100"
+          >
+            {isSearchingAddress ? "Buscando endereço..." : "Localizar endereço"}
+          </button>
+          {previewMapUrl ? (
+            <div className="mt-3 overflow-hidden rounded-lg border border-slate-200">
+              <iframe
+                title="Pré-visualização do endereço no mapa"
+                src={previewMapUrl}
+                className="h-52 w-full"
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+              />
+            </div>
+          ) : null}
+          {resolvedAddress ? (
+            <button
+              type="button"
+              onClick={shareResolvedAddress}
+              className="mt-3 w-full rounded-lg bg-emerald-600 py-2 text-xs font-bold uppercase tracking-wide text-white transition-colors duration-200 hover:bg-emerald-700"
+            >
+              Usar esse endereço e enviar no WhatsApp
+            </button>
+          ) : null}
+          {mapsError ? <p className="mt-2 text-center text-xs font-semibold text-rose-600">{mapsError}</p> : null}
+        </div>
         <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
           <p className="text-[11px] font-semibold text-slate-600">Se preferir, envie localização manual</p>
           <input
