@@ -7,7 +7,8 @@ const MERCHANT_NAME = "LIKE ACAI";
 const MERCHANT_CITY = "SAO LUIS";
 const TXID = "LIKEACAI001";
 const WHATSAPP_PHONE = "559898883316";
-const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+const ENV_GOOGLE_MAPS_API_KEY = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY ?? "").trim();
+const MAPS_API_KEY_STORAGE = "like_acai_maps_api_key";
 
 function tlv(id, value) {
   return `${id}${String(value.length).padStart(2, "0")}${value}`;
@@ -49,14 +50,14 @@ function buildPixPayload(amountCents) {
   return payloadWithoutCRC + crc16(payloadWithoutCRC);
 }
 
-async function reverseGeocodeWithGoogleMaps(latitude, longitude) {
-  if (!GOOGLE_MAPS_API_KEY) return null;
+async function reverseGeocodeWithGoogleMaps(latitude, longitude, apiKey) {
+  if (!apiKey) return null;
 
   try {
     const url = new URL("https://maps.googleapis.com/maps/api/geocode/json");
     url.searchParams.set("latlng", `${latitude},${longitude}`);
     url.searchParams.set("language", "pt-BR");
-    url.searchParams.set("key", GOOGLE_MAPS_API_KEY);
+    url.searchParams.set("key", apiKey);
 
     const response = await fetch(url.toString());
     if (!response.ok) return null;
@@ -72,15 +73,15 @@ async function reverseGeocodeWithGoogleMaps(latitude, longitude) {
   }
 }
 
-async function geocodeAddressWithGoogleMaps(address) {
-  if (!GOOGLE_MAPS_API_KEY) return { error: "missing_key" };
+async function geocodeAddressWithGoogleMaps(address, apiKey) {
+  if (!apiKey) return { error: "missing_key" };
 
   try {
     const url = new URL("https://maps.googleapis.com/maps/api/geocode/json");
     url.searchParams.set("address", address);
     url.searchParams.set("region", "br");
     url.searchParams.set("language", "pt-BR");
-    url.searchParams.set("key", GOOGLE_MAPS_API_KEY);
+    url.searchParams.set("key", apiKey);
 
     const response = await fetch(url.toString());
     if (!response.ok) return { error: "network" };
@@ -109,6 +110,10 @@ async function geocodeAddressWithGoogleMaps(address) {
 function Pagamento() {
   const navigate = useNavigate();
   const { items, totalPriceCents, totalPriceFormatted, clearCart } = useCart();
+  const [mapsApiKeyInput, setMapsApiKeyInput] = useState(() => {
+    if (typeof window === "undefined") return "";
+    return window.localStorage.getItem(MAPS_API_KEY_STORAGE) ?? "";
+  });
   const [copied, setCopied] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
   const [locationError, setLocationError] = useState("");
@@ -118,6 +123,11 @@ function Pagamento() {
   const [addressQuery, setAddressQuery] = useState("");
   const [isSearchingAddress, setIsSearchingAddress] = useState(false);
   const [previewMapUrl, setPreviewMapUrl] = useState("");
+  const mapsApiKey = useMemo(
+    () => mapsApiKeyInput.trim() || ENV_GOOGLE_MAPS_API_KEY,
+    [mapsApiKeyInput],
+  );
+  const hasMapsApiKey = Boolean(mapsApiKey);
 
   const pixPayload = useMemo(() => buildPixPayload(totalPriceCents), [totalPriceCents]);
   const qrCodeUrl = useMemo(
@@ -133,6 +143,20 @@ function Pagamento() {
     } catch {
       setCopied(false);
     }
+  };
+
+  const handleMapsApiKeyChange = (event) => {
+    const nextKey = event.target.value;
+    setMapsApiKeyInput(nextKey);
+    if (typeof window === "undefined") return;
+
+    const trimmedKey = nextKey.trim();
+    if (!trimmedKey) {
+      window.localStorage.removeItem(MAPS_API_KEY_STORAGE);
+      return;
+    }
+
+    window.localStorage.setItem(MAPS_API_KEY_STORAGE, trimmedKey);
   };
 
   const sendToWhatsAppWithLocation = (mapsLink, addressText = "") => {
@@ -170,7 +194,7 @@ function Pagamento() {
         const mapsLink = `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
         const embedUrl = `https://www.google.com/maps?q=${latitude},${longitude}&z=17&output=embed`;
         const addressText =
-          (await reverseGeocodeWithGoogleMaps(latitude, longitude)) ??
+          (await reverseGeocodeWithGoogleMaps(latitude, longitude, mapsApiKey)) ??
           `Lat ${latitude.toFixed(6)}, Lng ${longitude.toFixed(6)}`;
         setResolvedAddress(addressText);
         setPreviewMapUrl(embedUrl);
@@ -201,11 +225,11 @@ function Pagamento() {
     setLocationError("");
     setIsSearchingAddress(true);
 
-    const result = await geocodeAddressWithGoogleMaps(trimmedAddress);
+    const result = await geocodeAddressWithGoogleMaps(trimmedAddress, mapsApiKey);
     if (result?.error) {
       setIsSearchingAddress(false);
       if (result.error === "missing_key") {
-        setMapsError("Falta configurar a chave do Google Maps.");
+        setMapsError("Falta configurar a chave do Google Maps. Cole a chave no campo abaixo.");
         return;
       }
       if (result.error === "REQUEST_DENIED") {
@@ -323,6 +347,19 @@ function Pagamento() {
         >
           {isLocating ? "Capturando localização..." : "Já paguei, enviar localização automática"}
         </button>
+        {!hasMapsApiKey ? (
+          <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
+            <p className="text-[11px] font-semibold text-amber-800">Cole sua chave Google Maps para habilitar busca de endereço</p>
+            <input
+              type="text"
+              value={mapsApiKeyInput}
+              onChange={handleMapsApiKeyChange}
+              placeholder="Cole aqui a API Key (AIza...)"
+              className="mt-2 w-full rounded-lg border border-amber-300 px-3 py-2 text-xs outline-none ring-amber-500 focus:ring"
+            />
+            <p className="mt-1 text-[11px] text-amber-700">Essa chave fica salva apenas neste navegador.</p>
+          </div>
+        ) : null}
         <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
           <p className="text-[11px] font-semibold text-slate-600">Ou digite seu endereço para localizar no Google Maps</p>
           <input
@@ -385,7 +422,7 @@ function Pagamento() {
           </p>
         ) : null}
         {locationError ? <p className="mt-2 text-center text-xs font-semibold text-rose-600">{locationError}</p> : null}
-        {!GOOGLE_MAPS_API_KEY ? (
+        {!hasMapsApiKey ? (
           <p className="mt-2 text-center text-[11px] text-amber-600">
             Dica: configure `VITE_GOOGLE_MAPS_API_KEY` para enviar endereço completo automaticamente.
           </p>
