@@ -3,6 +3,8 @@ import { formatCents, parseCurrencyToCents } from "../utils/currency";
 
 const CartContext = createContext(null);
 
+// Garante compatibilidade com itens salvos em formatos antigos.
+// Assim o carrinho continua funcionando mesmo após mudanças de estrutura.
 function normalizeStoredItem(item) {
   const quantity = Number.isFinite(item?.quantity) ? Math.max(1, item.quantity) : 1;
   const unitPriceCents = Number.isFinite(item?.unitPriceCents)
@@ -17,6 +19,9 @@ function normalizeStoredItem(item) {
 }
 
 export function CartProvider({ children }) {
+  // ===== 1) Estado base com persistência em localStorage =====
+  // Estado principal do carrinho.
+  // É inicializado a partir do localStorage para persistir entre recarregamentos.
   const [items, setItems] = useState(() => {
     const saved = localStorage.getItem("like-acai-cart");
     if (!saved) return [];
@@ -31,20 +36,25 @@ export function CartProvider({ children }) {
   });
 
   useEffect(() => {
+    // Sempre que o carrinho muda, salva a versão atual no navegador.
     localStorage.setItem("like-acai-cart", JSON.stringify(items));
   }, [items]);
 
+  // ===== 2) Ações públicas para manipular o carrinho =====
   const addItem = (item) => {
     setItems((prev) => {
       const normalizedItem = normalizeStoredItem(item);
       const existing = prev.find((cartItem) => cartItem.id === normalizedItem.id);
 
       if (existing) {
+        // Mesmo ID = mesma personalização.
+        // Nesse caso, só incrementa a quantidade.
         return prev.map((cartItem) =>
           cartItem.id === normalizedItem.id ? { ...cartItem, quantity: cartItem.quantity + 1 } : cartItem,
         );
       }
 
+      // Item novo no carrinho.
       return [...prev, normalizedItem];
     });
   };
@@ -63,11 +73,15 @@ export function CartProvider({ children }) {
 
   const clearCart = () => setItems([]);
 
+  // ===== 3) Dados derivados e API exposta pelo contexto =====
   const value = useMemo(() => {
+    // Total de unidades (badge do carrinho).
     const totalItems = items.reduce((acc, item) => acc + item.quantity, 0);
+    // Total financeiro em centavos para evitar problema de arredondamento com float.
     const totalPriceCents = items.reduce((acc, item) => acc + item.unitPriceCents * item.quantity, 0);
 
     return {
+      // Mantém preço formatado pronto para UI.
       items: items.map((item) => ({
         ...item,
         priceFormatted: formatCents(item.unitPriceCents),
@@ -90,6 +104,7 @@ export function useCart() {
   const context = useContext(CartContext);
 
   if (!context) {
+    // Protege contra uso fora do provider.
     throw new Error("useCart deve ser usado dentro de CartProvider");
   }
 

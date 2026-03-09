@@ -3,6 +3,7 @@ import { useCart } from "../context/CartContext";
 
 function Carrinho() {
   const navigate = useNavigate();
+  // Dados e ações centralizadas no contexto global.
   const { items, totalPriceFormatted, removeItem, changeQuantity, clearCart } = useCart();
  
   return (
@@ -29,6 +30,7 @@ function Carrinho() {
 
       <section className="space-y-3 px-3 pt-3">
         {items.length === 0 ? (
+          // Estado vazio do carrinho.
           <div className="surface-card rounded-2xl p-5 text-center">
             <p className="text-sm font-semibold">Seu carrinho está vazio.</p>
             <p className="mt-1 text-xs text-slate-500">Adicione itens pelo cardápio para continuar.</p>
@@ -41,6 +43,7 @@ function Carrinho() {
             </button>
           </div>
         ) : (
+          // Lista de itens adicionados.
           items.map((item) => (
             <article key={item.id} className="surface-card rounded-2xl p-3">
               <div className="flex items-start justify-between gap-3">
@@ -59,6 +62,7 @@ function Carrinho() {
               </div>
 
               <div className="mt-3 flex items-center gap-2">
+                {/* Controles de quantidade por item */}
                 <button
                   type="button"
                   onClick={() => changeQuantity(item.id, -1)}
@@ -81,6 +85,7 @@ function Carrinho() {
       </section>
 
       {items.length > 0 ? (
+        // Rodapé fixo com total e CTA para pagamento.
         <footer className="safe-bottom sticky-panel fixed bottom-0 left-1/2 w-full max-w-md -translate-x-1/2 border-t border-slate-200 px-3 pb-3 pt-2">
           <div className="mb-2 flex items-center justify-between text-sm font-semibold">
             <span>Total</span>

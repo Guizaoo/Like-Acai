@@ -25,6 +25,8 @@ function NavIcon({ src, alt }) {
   );
 }
 
+// Fonte principal dos itens exibidos no cardápio da Home.
+// Para alterar preços, nomes, descrições e imagens, edite este array.
 const cardapio = [
   {
     categoria: "Café da Manhã / Lanches",
@@ -191,6 +193,7 @@ function CardapioItem({ item, onAdd, canAdd }) {
 }
 
 function Home() {
+  // ===== 1) Estado e referências de elementos =====
   const navigate = useNavigate();
   const { addItem, totalItems } = useCart();
   const buscaInputRef = useRef(null);
@@ -201,12 +204,14 @@ function Home() {
   const [abaAtiva, setAbaAtiva] = useState("inicio");
   const [cartToast, setCartToast] = useState({ visible: false, message: "" });
 
+  // ===== 2) Helpers de estilo e dados derivados =====
   const estiloAba = (aba, estiloInativo = "text-slate-500 hover:bg-slate-100/80 hover:text-slate-800") =>
     `relative flex min-w-16 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2.5 text-xs font-medium transition-all duration-200 ${
       abaAtiva === aba ? "bg-fuchsia-600/15 text-fuchsia-700" : estiloInativo
     }`;
 
   const cardapioFiltrado = useMemo(() => {
+    // Filtro de busca em título, descrição e categoria.
     const termo = filtro.trim().toLowerCase();
 
     if (!termo) return cardapio;
@@ -224,6 +229,7 @@ function Home() {
       .filter((secao) => secao.itens.length > 0);
   }, [filtro]);
 
+  // ===== 3) Ações de navegação e interação =====
   const irParaInicio = () => {
     setAbaAtiva("inicio");
     navigate("/");
@@ -231,6 +237,7 @@ function Home() {
   };
 
   const abrirBusca = () => {
+    // Leva o usuário para Home e foca o input de busca.
     setAbaAtiva("buscar");
     navigate("/");
     const inputBusca = buscaInputRef.current;
@@ -242,7 +249,9 @@ function Home() {
     });
   };
 
+  // ===== 4) Feedback visual de item adicionado =====
   const runFlyToCart = (origemElemento) => {
+    // Animação visual de "item voando" até o botão do carrinho.
     const botaoCarrinho = cartButtonRef.current;
     if (!origemElemento || !botaoCarrinho) return;
 
@@ -332,7 +341,9 @@ function Home() {
     botaoCarrinho.classList.add("cart-bump");
   };
 
+  // ===== 5) Feedback textual de item adicionado =====
   const showCartToast = (itemTitle) => {
+    // Feedback textual curto após adicionar item.
     if (toastTimeoutRef.current) {
       clearTimeout(toastTimeoutRef.current);
     }
@@ -347,8 +358,10 @@ function Home() {
     }, 2300);
   };
 
+  // ===== 6) Limpeza de recursos quando a tela desmonta =====
   useEffect(
     () => () => {
+      // Limpeza de timeouts para evitar vazamento de memória.
       if (toastTimeoutRef.current) {
         clearTimeout(toastTimeoutRef.current);
       }
@@ -358,8 +371,10 @@ function Home() {
     [],
   );
 
+  // ===== 7) Render da Home =====
   return (
     <main className="app-shell mx-auto min-h-screen w-full max-w-md bg-transparent pb-28 text-slate-800">
+      {/* Toast de confirmação de adição ao carrinho */}
       <div
         className={`pointer-events-none fixed left-1/2 top-3 z-50 w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 rounded-2xl border border-emerald-200 bg-emerald-50/95 px-4 py-2 text-center text-xs font-semibold text-emerald-700 shadow-[0_10px_24px_rgba(16,185,129,0.2)] backdrop-blur-sm transition-all duration-300 ${
           cartToast.visible ? "translate-y-0 opacity-100" : "-translate-y-3 opacity-0"
@@ -370,7 +385,7 @@ function Home() {
         {cartToast.message}
       </div>
       
- 
+      {/* Banner principal */}
       <section className="relative h-52 w-full overflow-hidden sm:h-64">
         <img
           src={BannerAcai}
@@ -381,6 +396,7 @@ function Home() {
         <div className="absolute inset-0 bg-gradient-to-t from-black/15 via-transparent to-transparent" />
       </section>
 
+      {/* Cartão de identificação da loja */}
       <section className="surface-card mx-3 mt-3 rounded-3xl px-4 pb-4 pt-3">
         <div className="mb-1 flex items-center gap-2">
           <h1 className="text-2xl font-black tracking-tight">LikeAçai</h1>
@@ -388,6 +404,7 @@ function Home() {
         <p className="text-xs text-slate-600">📍 São Luís - MA • ⭐ 4,9 (200 avaliações)</p>
       </section>
 
+      {/* Busca no cardápio */}
       <section className="px-3 pt-3">
         <label htmlFor="busca-cardapio" className="sr-only">
           Buscar no cardápio
@@ -403,6 +420,7 @@ function Home() {
         />
       </section>
 
+      {/* Lista de categorias e produtos */}
       <section id="secao-cardapio" className="px-3 pt-4">
         <h2 className="text-lg font-bold tracking-tight">Cardápio</h2>
 
@@ -419,6 +437,9 @@ function Home() {
                       key={item.id}
                       item={item}
                       canAdd={secao.categoria === "Açaí Montado"}
+                      // Regra de fluxo:
+                      // 1) Açaí Montado abre personalização.
+                      // 2) Demais categorias adicionam direto no carrinho.
                       onAdd={(origemElemento) =>
                         secao.categoria === "Açaí Montado"
                           ? navigate("/adicao", { state: { item } })
@@ -438,6 +459,7 @@ function Home() {
       </section>
 
       <nav
+        // Barra inferior fixa de navegação principal.
         className="safe-bottom sticky-panel relative fixed mt-2 left-1/2 z-20 w-[calc(100%-1rem)] max-w-md -translate-x-1/2 rounded-[28px] px-2.5 pt-2 text-xs"
         aria-label="Navegação principal"
       >

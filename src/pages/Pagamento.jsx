@@ -2,19 +2,23 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 
+// Configurações centrais de pagamento e contato.
+// Ajuste aqui caso mude chave Pix, nome da loja, cidade, txid ou número do WhatsApp.
 const PIX_KEY = "04151174370";
 const MERCHANT_NAME = "LIKE ACAI";
 const MERCHANT_CITY = "SAO LUIS";
 const TXID = "LIKEACAI001";
 const WHATSAPP_PHONE = "559898883316";
-const ENV_GOOGLE_MAPS_API_KEY = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY ?? "").trim();
-const MAPS_API_KEY_STORAGE = "like_acai_maps_api_key";
+// Chave da API do Google Maps lida de variável de ambiente (Vite).
+const GOOGLE_MAPS_API_KEY = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY ?? "").trim();
 
 function tlv(id, value) {
+  // Formato TLV exigido pelo padrão BR Code do Pix.
   return `${id}${String(value.length).padStart(2, "0")}${value}`;
 }
 
 function crc16(payload) {
+  // Checksum obrigatório no final do payload Pix.
   let crc = 0xffff;
   for (let i = 0; i < payload.length; i += 1) {
     crc ^= payload.charCodeAt(i) << 8;
@@ -31,6 +35,7 @@ function crc16(payload) {
 }
 
 function buildPixPayload(amountCents) {
+  // Monta o payload "copia e cola" Pix em formato EMV.
   const amount = (amountCents / 100).toFixed(2);
   const merchantAccount = tlv("00", "br.gov.bcb.pix") + tlv("01", PIX_KEY);
   const additionalData = tlv("05", TXID);
@@ -50,14 +55,15 @@ function buildPixPayload(amountCents) {
   return payloadWithoutCRC + crc16(payloadWithoutCRC);
 }
 
-async function reverseGeocodeWithGoogleMaps(latitude, longitude, apiKey) {
-  if (!apiKey) return null;
+async function reverseGeocodeWithGoogleMaps(latitude, longitude) {
+  // Converte latitude/longitude em endereço textual.
+  if (!GOOGLE_MAPS_API_KEY) return null;
 
   try {
     const url = new URL("https://maps.googleapis.com/maps/api/geocode/json");
     url.searchParams.set("latlng", `${latitude},${longitude}`);
     url.searchParams.set("language", "pt-BR");
-    url.searchParams.set("key", apiKey);
+    url.searchParams.set("key", GOOGLE_MAPS_API_KEY);
 
     const response = await fetch(url.toString());
     if (!response.ok) return null;
@@ -73,15 +79,16 @@ async function reverseGeocodeWithGoogleMaps(latitude, longitude, apiKey) {
   }
 }
 
-async function geocodeAddressWithGoogleMaps(address, apiKey) {
-  if (!apiKey) return { error: "missing_key" };
+async function geocodeAddressWithGoogleMaps(address) {
+  // Converte endereço digitado em latitude/longitude.
+  if (!GOOGLE_MAPS_API_KEY) return { error: "missing_key" };
 
   try {
     const url = new URL("https://maps.googleapis.com/maps/api/geocode/json");
     url.searchParams.set("address", address);
     url.searchParams.set("region", "br");
     url.searchParams.set("language", "pt-BR");
-    url.searchParams.set("key", apiKey);
+    url.searchParams.set("key", GOOGLE_MAPS_API_KEY);
 
     const response = await fetch(url.toString());
     if (!response.ok) return { error: "network" };
@@ -108,12 +115,9 @@ async function geocodeAddressWithGoogleMaps(address, apiKey) {
 }
 
 function Pagamento() {
+  // ===== 1) Dados globais e estados locais da tela =====
   const navigate = useNavigate();
   const { items, totalPriceCents, totalPriceFormatted, clearCart } = useCart();
-  const [mapsApiKeyInput, setMapsApiKeyInput] = useState(() => {
-    if (typeof window === "undefined") return "";
-    return window.localStorage.getItem(MAPS_API_KEY_STORAGE) ?? "";
-  });
   const [copied, setCopied] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
   const [locationError, setLocationError] = useState("");
@@ -123,19 +127,18 @@ function Pagamento() {
   const [addressQuery, setAddressQuery] = useState("");
   const [isSearchingAddress, setIsSearchingAddress] = useState(false);
   const [previewMapUrl, setPreviewMapUrl] = useState("");
-  const mapsApiKey = useMemo(
-    () => mapsApiKeyInput.trim() || ENV_GOOGLE_MAPS_API_KEY,
-    [mapsApiKeyInput],
-  );
-  const hasMapsApiKey = Boolean(mapsApiKey);
 
+  // ===== 2) Dados derivados para cobrança Pix =====
   const pixPayload = useMemo(() => buildPixPayload(totalPriceCents), [totalPriceCents]);
   const qrCodeUrl = useMemo(
+    // Gera URL do QR Code a partir do payload Pix.
     () => `https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=${encodeURIComponent(pixPayload)}`,
     [pixPayload],
   );
 
+  // ===== 3) Ações de pagamento e compartilhamento =====
   const copyPixCode = async () => {
+    // Copia o Pix "copia e cola" para área de transferência.
     try {
       await navigator.clipboard.writeText(pixPayload);
       setCopied(true);
@@ -145,21 +148,8 @@ function Pagamento() {
     }
   };
 
-  const handleMapsApiKeyChange = (event) => {
-    const nextKey = event.target.value;
-    setMapsApiKeyInput(nextKey);
-    if (typeof window === "undefined") return;
-
-    const trimmedKey = nextKey.trim();
-    if (!trimmedKey) {
-      window.localStorage.removeItem(MAPS_API_KEY_STORAGE);
-      return;
-    }
-
-    window.localStorage.setItem(MAPS_API_KEY_STORAGE, trimmedKey);
-  };
-
   const sendToWhatsAppWithLocation = (mapsLink, addressText = "") => {
+    // Mensagem padronizada enviada para o WhatsApp com status de pagamento + localização.
     const message = [
       `Olá! Já paguei meu pedido via Pix (${totalPriceFormatted}).`,
       addressText ? `Endereço aproximado: ${addressText}` : null,
@@ -174,13 +164,17 @@ function Pagamento() {
 
     const openedWindow = window.open(primaryUrl, "_blank", "noopener,noreferrer");
     if (!openedWindow) {
+      // Fallback caso pop-up esteja bloqueado no navegador.
       window.location.assign(fallbackUrl);
     }
 
+    // Limpa carrinho após envio para evitar duplicidade de pedido.
     clearCart();
   };
 
+  // Fluxo automático: GPS + endereço + envio no WhatsApp.
   const shareCurrentLocation = () => {
+    // Fluxo automático: pega GPS, tenta resolver endereço e já envia para o WhatsApp.
     if (!navigator.geolocation) {
       setLocationError("Seu navegador não suporta geolocalização. Use o link manual abaixo.");
       return;
@@ -194,7 +188,7 @@ function Pagamento() {
         const mapsLink = `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
         const embedUrl = `https://www.google.com/maps?q=${latitude},${longitude}&z=17&output=embed`;
         const addressText =
-          (await reverseGeocodeWithGoogleMaps(latitude, longitude, mapsApiKey)) ??
+          (await reverseGeocodeWithGoogleMaps(latitude, longitude)) ??
           `Lat ${latitude.toFixed(6)}, Lng ${longitude.toFixed(6)}`;
         setResolvedAddress(addressText);
         setPreviewMapUrl(embedUrl);
@@ -214,7 +208,9 @@ function Pagamento() {
     );
   };
 
+  // Fluxo manual assistido: usuário digita endereço e validamos via Geocoding API.
   const searchAddressInMaps = async () => {
+    // Fluxo manual: cliente digita endereço e app busca coordenadas na Geocoding API.
     const trimmedAddress = addressQuery.trim();
     if (!trimmedAddress) {
       setMapsError("Digite seu endereço para localizar no Google Maps.");
@@ -225,15 +221,16 @@ function Pagamento() {
     setLocationError("");
     setIsSearchingAddress(true);
 
-    const result = await geocodeAddressWithGoogleMaps(trimmedAddress, mapsApiKey);
+    const result = await geocodeAddressWithGoogleMaps(trimmedAddress);
     if (result?.error) {
       setIsSearchingAddress(false);
       if (result.error === "missing_key") {
-        setMapsError("Falta configurar a chave do Google Maps. Cole a chave no campo abaixo.");
+        setMapsError("Falta configurar a chave do Google Maps.");
         return;
       }
       if (result.error === "REQUEST_DENIED") {
         const detail = result.errorMessage ? ` (${result.errorMessage})` : "";
+        // Exibe detalhe do Google para facilitar diagnóstico de chave/restrições.
         setMapsError(`Google recusou a chave. Confira restrições de domínio e API Geocoding${detail}`);
         return;
       }
@@ -259,7 +256,9 @@ function Pagamento() {
     setIsSearchingAddress(false);
   };
 
+  // Reaproveita endereço validado e envia ao WhatsApp.
   const shareResolvedAddress = () => {
+    // Envia endereço já validado no mapa.
     if (!manualLocationLink.trim()) {
       setLocationError("Primeiro localize seu endereço para enviar.");
       return;
@@ -269,7 +268,9 @@ function Pagamento() {
     sendToWhatsAppWithLocation(manualLocationLink.trim(), resolvedAddress);
   };
 
+  // Fallback total: usuário cola o link pronto.
   const shareManualLocation = () => {
+    // Fallback total: cliente cola link do Google Maps manualmente.
     const trimmed = manualLocationLink.trim();
     if (!trimmed) {
       setLocationError("Cole um link válido do Google Maps para enviar.");
@@ -280,7 +281,9 @@ function Pagamento() {
     sendToWhatsAppWithLocation(trimmed, resolvedAddress);
   };
 
+  // ===== 4) Guarda de rota: sem itens, não segue para pagamento =====
   if (items.length === 0) {
+    // Proteção: impede acesso à tela de pagamento sem pedido.
     return (
       <main className="app-shell mx-auto min-h-screen w-full max-w-md bg-transparent px-3 py-4 text-slate-800">
         <section className="surface-card rounded-2xl p-5 text-center">
@@ -297,6 +300,7 @@ function Pagamento() {
     );
   }
 
+  // ===== 5) Render da tela de pagamento =====
   return (
     <main className="app-shell mx-auto min-h-screen w-full max-w-md bg-transparent pb-6 text-slate-800">
       <header className="sticky top-0 z-10 border-b border-slate-200/80 bg-white/90 px-4 py-3 backdrop-blur">
@@ -313,6 +317,7 @@ function Pagamento() {
         </div>
       </header>
 
+      {/* Bloco principal de cobrança Pix */}
       <section className="px-3 pt-3">
         <div className="surface-card rounded-2xl p-4 text-center">
           <p className="text-xs text-slate-600">Valor total</p>
@@ -338,6 +343,7 @@ function Pagamento() {
         </div>
       </section>
 
+      {/* Bloco de localização para entrega */}
       <section className="px-3 pt-3">
         <button
           type="button"
@@ -347,20 +353,8 @@ function Pagamento() {
         >
           {isLocating ? "Capturando localização..." : "Já paguei, enviar localização automática"}
         </button>
-        {!hasMapsApiKey ? (
-          <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
-            <p className="text-[11px] font-semibold text-amber-800">Cole sua chave Google Maps para habilitar busca de endereço</p>
-            <input
-              type="text"
-              value={mapsApiKeyInput}
-              onChange={handleMapsApiKeyChange}
-              placeholder="Cole aqui a API Key (AIza...)"
-              className="mt-2 w-full rounded-lg border border-amber-300 px-3 py-2 text-xs outline-none ring-amber-500 focus:ring"
-            />
-            <p className="mt-1 text-[11px] text-amber-700">Essa chave fica salva apenas neste navegador.</p>
-          </div>
-        ) : null}
         <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
+          {/* Busca de endereço assistida por Google Geocoding */}
           <p className="text-[11px] font-semibold text-slate-600">Ou digite seu endereço para localizar no Google Maps</p>
           <input
             type="text"
@@ -399,31 +393,16 @@ function Pagamento() {
           ) : null}
           {mapsError ? <p className="mt-2 text-center text-xs font-semibold text-rose-600">{mapsError}</p> : null}
         </div>
-        <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
-          <p className="text-[11px] font-semibold text-slate-600">Se preferir, envie localização manual</p>
-          <input
-            type="url"
-            value={manualLocationLink}
-            onChange={(event) => setManualLocationLink(event.target.value)}
-            placeholder="Cole aqui o link da sua localização do Google Maps"
-            className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-xs outline-none ring-fuchsia-500 focus:ring"
-          />
-          <button
-            type="button"
-            onClick={shareManualLocation}
-            className="mt-2 w-full rounded-lg border border-fuchsia-200 bg-fuchsia-50 py-2 text-xs font-semibold text-fuchsia-700 transition-colors duration-200 hover:bg-fuchsia-100"
-          >
-            Enviar localização manual no WhatsApp
-          </button>
-        </div>
+        
         {resolvedAddress ? (
           <p className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-[11px] text-slate-600">
             Endereço detectado: <span className="font-semibold">{resolvedAddress}</span>
           </p>
         ) : null}
         {locationError ? <p className="mt-2 text-center text-xs font-semibold text-rose-600">{locationError}</p> : null}
-        {!hasMapsApiKey ? (
+        {!GOOGLE_MAPS_API_KEY ? (
           <p className="mt-2 text-center text-[11px] text-amber-600">
+            {/* Dica visível somente quando a variável de ambiente não existe */}
             Dica: configure `VITE_GOOGLE_MAPS_API_KEY` para enviar endereço completo automaticamente.
           </p>
         ) : null}

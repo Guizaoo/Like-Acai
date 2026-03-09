@@ -10,6 +10,8 @@ import {
 } from "../utils/acaiPricing";
 import { formatCents, parseCurrencyToCents } from "../utils/currency";
 
+// Estrutura das seções de personalização.
+// Para adicionar/remover opções no configurador, altere este array.
 const grupos = [
   {
     id: "base",
@@ -109,11 +111,13 @@ const grupos = [
 ];
 
 function extractMlSize(productName) {
+  // Extrai tamanho (ml) do título para aplicar regra de complementos grátis.
   const match = String(productName).match(/(\d+)\s*ml/i);
   return match ? Number.parseInt(match[1], 10) : null;
 }
 
 function slugify(value) {
+  // Normaliza textos para montar IDs estáveis no carrinho.
   return String(value)
     .toLowerCase()
     .normalize("NFD")
@@ -163,17 +167,21 @@ function SecaoOpcoes({ grupo, selecao, onSelect, contador, subtitulo }) {
 }
 
 function Adicao() {
+  // ===== 1) Dependências de navegação e carrinho =====
   const navigate = useNavigate();
   const { state } = useLocation();
   const item = state?.item;
   const { addItem } = useCart();
 
+  // Fallbacks caso a página seja aberta sem state da Home.
   const nomeProduto = item?.title ?? "Açaí 700ml";
   const precoProduto = item?.price ?? "R$ 28,97";
   const tamanhoMl = extractMlSize(nomeProduto);
+  // Regra de negócio: 150/200/300ml => 3 grátis; demais => 4.
   const limiteGratisComplementos = getFreeComplementLimit(tamanhoMl);
   const precoBaseCents = Number.isFinite(item?.unitPriceCents) ? item.unitPriceCents : parseCurrencyToCents(precoProduto);
 
+  // ===== 2) Estado das seleções do configurador =====
   const [selecoes, setSelecoes] = useState(() =>
     grupos.reduce((acc, grupo) => {
       acc[grupo.id] = grupo.tipo === "radio" ? "" : [];
@@ -181,6 +189,7 @@ function Adicao() {
     }, {}),
   );
 
+  // ===== 3) Handler de escolha de opções =====
   const selecionarOpcao = (grupo, opcaoNome) => {
     setSelecoes((prev) => {
       if (grupo.tipo === "radio") {
@@ -195,6 +204,7 @@ function Adicao() {
       }
 
       if (grupo.max && selecionadas.length >= grupo.max) {
+        // Impede selecionar acima do máximo permitido para o grupo.
         return prev;
       }
 
@@ -202,8 +212,10 @@ function Adicao() {
     });
   };
 
+  // ===== 4) Cálculo de preço final =====
   const qtdComplementos = selecoes.complementos.length;
   const qtdComplementosCobrados = getChargedComplementCount(qtdComplementos, limiteGratisComplementos);
+  // Acréscimo financeiro dos complementos excedentes.
   const acrescimoComplementosCents = calculateExtraComplementCents(qtdComplementos, limiteGratisComplementos);
   const precoFinalCents = precoBaseCents + acrescimoComplementosCents;
   const precoFinalFormatado = formatCents(precoFinalCents);
@@ -220,9 +232,11 @@ function Adicao() {
 
   const podeAdicionar = obrigatoriosPendentes.length === 0;
 
+  // ===== 5) Montagem do item final e envio ao carrinho =====
   const adicionarAoCarrinho = () => {
     if (!podeAdicionar) return;
 
+    // Texto que aparece no carrinho detalhando a personalização.
     const resumoPersonalizacao = [
       selecoes.base ? `Base: ${selecoes.base}` : null,
       selecoes.complementos.length > 0 ? `Complementos: ${selecoes.complementos.join(", ")}` : null,
@@ -233,6 +247,7 @@ function Adicao() {
       .filter(Boolean)
       .join(" • ");
 
+    // ID único por combinação de opções para evitar misturar configurações diferentes.
     const chavePersonalizacao = [
       selecoes.base,
       ...selecoes.complementos,
@@ -252,12 +267,15 @@ function Adicao() {
     };
 
     addItem(itemCarrinho);
+    // Após confirmar, direciona direto para revisão do pedido.
     navigate("/carrinho");
   };
 
+  // ===== 6) Render da tela de personalização =====
   return (
     <main className="app-shell mx-auto min-h-screen w-full max-w-md bg-transparent text-zinc-900">
       <div className="min-h-screen pb-28">
+        {/* Topo fixo com ação de voltar */}
         <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-slate-200/80 bg-white/90 px-3 py-2 backdrop-blur">
           <button
             type="button"
@@ -271,6 +289,7 @@ function Adicao() {
 
         <img src={ImgAcai} alt={nomeProduto} className="h-36 w-full object-cover" />
 
+        {/* Resumo de preço e regra de complementos */}
         <section className="surface-card mx-3 -mt-4 rounded-2xl px-3 py-3">
           <h1 className="text-base font-semibold">{nomeProduto}</h1>
           <p className="mt-1 text-xs leading-relaxed text-zinc-600">
@@ -280,11 +299,13 @@ function Adicao() {
           <p className="mt-2 text-lg font-bold text-fuchsia-700">{precoFinalFormatado}</p>
           {qtdComplementosCobrados > 0 ? (
             <p className="mt-1 text-xs font-medium text-amber-600">
+              {/* Mostra custo extra em tempo real para transparência de preço */}
               Acréscimo atual: +{formatCents(acrescimoComplementosCents)} ({qtdComplementosCobrados} extra)
             </p>
           ) : null}
         </section>
 
+        {/* Grupos de personalização */}
         <div className="space-y-2.5 px-3 py-3">
           {grupos.map((grupo) => (
             <SecaoOpcoes
@@ -310,6 +331,7 @@ function Adicao() {
           ))}
         </div>
 
+        {/* Barra fixa de confirmação */}
         <div className="safe-bottom sticky-panel fixed bottom-0 left-1/2 w-full max-w-md -translate-x-1/2 border-t border-slate-200 px-3 pb-3 pt-2">
           {!podeAdicionar ? (
             <p className="mb-2 text-center text-[11px] font-semibold text-fuchsia-700">
