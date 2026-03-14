@@ -403,7 +403,7 @@ function Pagamento() {
         {!GOOGLE_MAPS_API_KEY ? (
           <p className="mt-2 text-center text-[11px] text-amber-600">
             {/* Dica visível somente quando a variável de ambiente não existe */}
-            Dica: configure `VITE_GOOGLE_MAPS_API_KEY` para enviar endereço completo automaticamente.
+            
           </p>
         ) : null}
       </section>
